@@ -30,6 +30,7 @@
   <script type="module">
     import { supabase } from './supabase-client.js';
     import { getCurrentProfile } from './auth.js';
+    import { VERIFIED_BADGE_SVG } from './utils.js';
 
     function usernameFromPath() {
       // Supports both public-member-profile.html?u=:username (via Netlify/Vercel rewrite)
@@ -106,7 +107,7 @@
         <div class="profile-header">
           <img src="${profile.profile_photo_url || '/images/default-avatar.png'}" alt="" class="profile-avatar" />
           <div>
-            <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? '<span class="verified-badge" title="Verified member">✅ Verified</span>' : ''}</h1>
+            <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? `<span class="verified-badge" title="Verified member">${VERIFIED_BADGE_SVG}</span>` : ''}</h1>
             <p class="profile-username">@${escapeHtml(profile.username)}</p>
             <p class="profile-headline">${escapeHtml(profile.professional_headline || '')}</p>
             ${location ? `<p class="profile-location">📍 ${escapeHtml(location)}</p>` : ''}

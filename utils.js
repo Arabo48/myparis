@@ -33,3 +33,11 @@ export function escapeHtml(str) {
   div.textContent = str ?? '';
   return div.innerHTML;
 }
+
+// A scalloped blue seal with a white checkmark — same visual language as
+// the familiar "verified" badges on major social platforms, drawn as our
+// own original path (not a copy of any trademarked icon).
+export const VERIFIED_BADGE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;display:inline-block;" role="img" aria-label="Verified">
+  <path d="M12 0l2.6 2.18 3.35-.77 1.28 3.2 3.2 1.28-.77 3.35L24 12l-2.34 2.76.77 3.35-3.2 1.28-1.28 3.2-3.35-.77L12 24l-2.76-2.34-3.35.77-1.28-3.2-3.2-1.28.77-3.35L0 12l2.34-2.76-.77-3.35 3.2-1.28 1.28-3.2 3.35.77L12 0z" fill="#1877F2"/>
+  <path d="M9.75 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.6-5.6 1.4 1.4-7 7z" fill="#fff"/>
+</svg>`;

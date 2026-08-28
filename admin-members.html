@@ -27,6 +27,7 @@
         <a href="admin-verification.html">Verification Requests</a>
         <a href="admin-audit-log.html">Audit Log</a>
         <a href="admin-settings.html">Platform Settings</a>
+        <a href="member-dashboard.html" style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Switch to Member View</a>
       </nav>
     </aside>
 
@@ -70,7 +71,7 @@
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
     import { logAdminAction } from './audit-log.js';
-    import { escapeHtml } from './utils.js';
+    import { escapeHtml, VERIFIED_BADGE_SVG } from './utils.js';
 
     const admin = await requireRole(['admin', 'super_admin']);
     if (!admin) throw new Error('Not authorized');
@@ -110,11 +111,12 @@
               ${['member', 'mentor', 'organization', 'admin', 'super_admin'].map(r => `<option value="${r}" ${r === m.role ? 'selected' : ''}>${r}</option>`).join('')}
             </select>
           </td>
-          <td>${m.is_verified ? '✅' : '—'}</td>
+          <td>${m.is_verified ? VERIFIED_BADGE_SVG : '—'}</td>
           <td>${m.is_suspended ? '<span class="status-badge" style="color:#FCA5A5;">Suspended</span>' : '<span class="status-badge">Active</span>'}</td>
           <td class="placeholder-text">${new Date(m.created_at).toLocaleDateString()}</td>
           <td class="row-actions">
             ${!m.is_verified ? `<button class="btn-ghost verify-btn" data-id="${m.id}">Verify</button>` : ''}
+            <button class="btn-ghost confirm-email-btn" data-id="${m.id}">Confirm Email</button>
             <button class="btn-ghost suspend-btn" data-id="${m.id}" data-suspended="${m.is_suspended}">${m.is_suspended ? 'Unsuspend' : 'Suspend'}</button>
             ${m.id !== admin.id ? `<button class="btn-ghost delete-btn" data-id="${m.id}" style="color:#FCA5A5;">Delete</button>` : ''}
           </td>
@@ -143,6 +145,22 @@
           const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', btn.dataset.id);
           if (!error) await logAdminAction({ adminId: admin.id, action: 'member_verified', targetTable: 'profiles', targetId: btn.dataset.id });
           loadMembers();
+        });
+      });
+
+      document.querySelectorAll('.confirm-email-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Manually confirm this member\'s email? Use this if they signed up but never clicked their confirmation email.')) return;
+          const { data: { session } } = await supabase.auth.getSession();
+          const { data, error } = await supabase.functions.invoke('confirm-user-email', {
+            body: { targetUserId: btn.dataset.id },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (error || data?.error) {
+            alert('Could not confirm this email: ' + (data?.error || error.message));
+            return;
+          }
+          alert('Email confirmed — they can now log in.');
         });
       });
 

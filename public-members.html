@@ -73,8 +73,7 @@
 
   <script type="module">
     import { supabase } from './supabase-client.js';
-
-    const PAGE_SIZE = 12;
+    import { VERIFIED_BADGE_SVG } from './utils.js';
     let page = 0;
 
     function escapeHtml(str) {
@@ -165,7 +164,7 @@
         grid.innerHTML = members.map(m => `
           <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(m.username)}">
             <img src="${m.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
-            <h3>${escapeHtml(m.full_name)} ${m.is_verified ? '✅' : ''}</h3>
+            <h3>${escapeHtml(m.full_name)} ${m.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
             <p>${escapeHtml(m.professional_headline || '')}</p>
             ${m.town ? `<p class="member-location">📍 ${escapeHtml(m.town)}${m.state ? ', ' + escapeHtml(m.state) : ''}</p>` : ''}
           </a>

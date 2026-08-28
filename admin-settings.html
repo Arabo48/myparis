@@ -26,6 +26,7 @@
         <a href="admin-verification.html">Verification Requests</a>
         <a href="admin-audit-log.html">Audit Log</a>
         <a href="admin-settings.html" class="active">Platform Settings</a>
+        <a href="member-dashboard.html" style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Switch to Member View</a>
       </nav>
     </aside>
 
@@ -40,7 +41,8 @@
         <textarea id="description" rows="2"></textarea>
 
         <label for="logoUrl">Logo URL</label>
-        <input id="logoUrl" type="url" />
+        <input id="logoUrl" type="url" placeholder="Paste a direct link to your logo image" />
+        <div id="logoPreviewWrap" style="margin-top:8px;"></div>
 
         <label for="faviconUrl">Favicon URL</label>
         <input id="faviconUrl" type="url" />
@@ -68,6 +70,22 @@
 
         <button type="submit" class="btn-primary btn-large" id="saveBtn">Save Settings</button>
       </form>
+
+      <section class="profile-section">
+        <h2 style="font-size:1.05rem;">Homepage Photo Gallery</h2>
+        <p class="placeholder-text" style="margin-bottom:14px;">Add direct image links to display in a gallery on the homepage.</p>
+
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <input id="newGalleryUrl" type="url" placeholder="Direct image URL" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+          <input id="newGalleryCaption" placeholder="Caption (optional)" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+          <button class="btn-primary" id="addGalleryBtn" type="button">Add</button>
+        </div>
+        <div id="galleryError" class="form-error" role="alert" hidden style="margin-bottom:14px;"></div>
+
+        <div id="galleryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+          <p class="placeholder-text">Loading…</p>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -75,6 +93,7 @@
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
     import { logAdminAction } from './audit-log.js';
+    import { escapeHtml } from './utils.js';
 
     // Matches the RLS policy: any admin or super_admin can manage
     // platform settings (Section 29: "Only admins can manage platform settings").
@@ -98,7 +117,17 @@
       document.getElementById('primaryColor').value = data.primary_color || '#0F172A';
       document.getElementById('accentColor').value = data.accent_color || '#2563EB';
       document.getElementById('footerText').value = data.footer_text || '';
+      renderLogoPreview();
     }
+
+    function renderLogoPreview() {
+      const url = document.getElementById('logoUrl').value.trim();
+      const wrap = document.getElementById('logoPreviewWrap');
+      wrap.innerHTML = url
+        ? `<img src="${url}" alt="Logo preview" style="max-height:60px;max-width:200px;object-fit:contain;background:var(--color-surface-2);border-radius:8px;padding:6px;" onerror="this.style.display='none'" />`
+        : '';
+    }
+    document.getElementById('logoUrl').addEventListener('input', renderLogoPreview);
 
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -139,7 +168,64 @@
       successBox.hidden = false;
     });
 
+    async function loadGallery() {
+      const { data, error } = await supabase
+        .from('gallery_images')
+        .select('id, image_url, caption')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      const grid = document.getElementById('galleryGrid');
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No gallery photos added yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(g => `
+        <div style="position:relative;">
+          <img src="${g.image_url}" alt="${escapeHtml(g.caption || '')}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;background:var(--color-surface-2);" onerror="this.style.opacity='0.3'" />
+          <button type="button" class="btn-ghost remove-gallery-btn" data-id="${g.id}" style="position:absolute;top:4px;right:4px;padding:2px 8px;font-size:0.75rem;background:var(--color-bg);">✕</button>
+          ${g.caption ? `<p class="placeholder-text" style="font-size:0.72rem;margin:4px 0 0;">${escapeHtml(g.caption)}</p>` : ''}
+        </div>
+      `).join('');
+
+      grid.querySelectorAll('.remove-gallery-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Remove this photo from the gallery?')) return;
+          await supabase.from('gallery_images').delete().eq('id', btn.dataset.id);
+          loadGallery();
+        });
+      });
+    }
+
+    document.getElementById('addGalleryBtn').addEventListener('click', async () => {
+      const urlInput = document.getElementById('newGalleryUrl');
+      const captionInput = document.getElementById('newGalleryCaption');
+      const errorBox = document.getElementById('galleryError');
+      errorBox.hidden = true;
+
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      const { error } = await supabase.from('gallery_images').insert({
+        image_url: url,
+        caption: captionInput.value.trim() || null,
+        created_by: admin.id,
+      });
+
+      if (error) {
+        errorBox.textContent = 'Could not add this photo. Please check the URL and try again.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      urlInput.value = '';
+      captionInput.value = '';
+      loadGallery();
+    });
+
     load();
+    loadGallery();
   </script>
 </body>
 </html>

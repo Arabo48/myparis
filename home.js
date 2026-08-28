@@ -3,6 +3,7 @@
 // (Section 45: no fake UI).
 
 import { supabase } from './supabase-client.js';
+import { VERIFIED_BADGE_SVG } from './utils.js';
 
 async function loadStats() {
   const [{ count: members }, { count: skills }, { count: projects }, { count: opportunities }] =
@@ -37,7 +38,7 @@ async function loadFeaturedMembers() {
   grid.innerHTML = data.map(m => `
     <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(m.username)}">
       <img src="${m.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
-      <h3>${escapeHtml(m.full_name)} ${m.is_verified ? '✅' : ''}</h3>
+      <h3>${escapeHtml(m.full_name)} ${m.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
       <p>${escapeHtml(m.professional_headline || '')}</p>
     </a>
   `).join('');
@@ -89,11 +90,15 @@ async function loadUpcomingEvents() {
 }
 
 async function loadPlatformName() {
-  const { data } = await supabase.from('platform_settings').select('platform_name, favicon_url, footer_text').limit(1).maybeSingle();
+  const { data } = await supabase.from('platform_settings').select('platform_name, logo_url, favicon_url, footer_text').limit(1).maybeSingle();
   if (data?.platform_name) {
     document.title = data.platform_name;
     const brand = document.getElementById('brand-name');
     if (brand) brand.textContent = data.platform_name;
+  }
+  if (data?.logo_url) {
+    const logo = document.getElementById('brand-logo');
+    if (logo) { logo.src = data.logo_url; logo.style.display = 'inline-block'; }
   }
   if (data?.favicon_url) {
     let link = document.querySelector("link[rel~='icon']");
@@ -104,6 +109,27 @@ async function loadPlatformName() {
     const footer = document.getElementById('siteFooter');
     if (footer) footer.querySelector('p').textContent = data.footer_text;
   }
+}
+
+async function loadGallery() {
+  const { data, error } = await supabase
+    .from('gallery_images')
+    .select('image_url, caption')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(12);
+
+  if (error || !data || data.length === 0) return;
+
+  const section = document.getElementById('photoGallery');
+  const grid = document.getElementById('photoGalleryGrid');
+  grid.innerHTML = data.map(g => `
+    <div>
+      <img src="${g.image_url}" alt="${escapeHtml(g.caption || '')}" loading="lazy" />
+      ${g.caption ? `<p class="gallery-caption">${escapeHtml(g.caption)}</p>` : ''}
+    </div>
+  `).join('');
+  section.hidden = false;
 }
 
 function setText(id, value) {
@@ -122,3 +148,4 @@ loadStats();
 loadFeaturedMembers();
 loadRecentProjects();
 loadUpcomingEvents();
+loadGallery();

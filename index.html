@@ -18,7 +18,10 @@
 
   <header class="site-header">
     <nav class="navbar" aria-label="Main navigation">
-      <a class="brand" href="index.html" id="brand-name">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <a class="brand" href="index.html" id="brand-link" style="display:flex;align-items:center;gap:8px;">
+        <img id="brand-logo" src="" alt="" style="height:28px;display:none;" />
+        <span id="brand-name">MY TOWN DIGITAL &amp; TECH COMMUNITY</span>
+      </a>
       <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" id="navToggle">☰</button>
       <ul class="nav-links" id="navLinks">
         <li><a href="index.html">Home</a></li>
@@ -80,6 +83,11 @@
       <div class="card-grid" id="upcomingEventsGrid">
         <p class="placeholder-text">Upcoming events will appear here.</p>
       </div>
+    </section>
+
+    <section class="section" id="photoGallery" hidden>
+      <h2>Community Gallery</h2>
+      <div class="gallery-grid" id="photoGalleryGrid"></div>
     </section>
 
     <section class="cta-section">

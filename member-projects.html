@@ -21,6 +21,7 @@
         <a href="member-services.html">My Services</a>
         <a href="member-achievements.html">My Achievements</a>
         <a href="member-settings.html">Settings</a>
+        <a href="admin-dashboard.html" id="switchToAdminLink" hidden style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Switch to Admin View</a>
       </nav>
     </aside>
 
@@ -84,6 +85,10 @@
     import { uniqueSlug, escapeHtml } from './utils.js';
 
     const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (profile && ["admin", "super_admin"].includes(profile.role)) {
+      const switchLink = document.getElementById("switchToAdminLink");
+      if (switchLink) switchLink.hidden = false;
+    }
     if (!profile) throw new Error('Not authorized');
 
     let editingId = null;
