@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Showcase — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/search.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/members.html">Members</a></li>
+        <li><a href="/pages/public/projects.html">Projects</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="search-page">
+    <h1>Project Showcase</h1>
+
+    <div class="filters-row">
+      <select id="fStatus">
+        <option value="">Any status</option>
+        <option value="completed">Completed</option>
+        <option value="in_progress">In progress</option>
+        <option value="prototype">Prototype</option>
+      </select>
+      <select id="fSort">
+        <option value="created_at_desc">Newest first</option>
+        <option value="title_asc">Title A–Z</option>
+      </select>
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div class="card-grid" id="resultsGrid"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    async function search() {
+      const status = document.getElementById('fStatus').value;
+      const sort = document.getElementById('fSort').value;
+
+      let query = supabase
+        .from('projects')
+        .select('title, slug, description, image_url, status, profiles(username, full_name)', { count: 'exact' });
+
+      if (status) query = query.eq('status', status);
+      query = sort === 'title_asc' ? query.order('title', { ascending: true }) : query.order('created_at', { ascending: false });
+
+      const { data, count, error } = await query.limit(48);
+      const grid = document.getElementById('resultsGrid');
+      document.getElementById('resultCount').textContent = `${count || 0} project${count === 1 ? '' : 's'}`;
+
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No projects match yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(p => `
+        <a class="project-card" href="/projects/${encodeURIComponent(p.slug)}">
+          <img src="${p.image_url || '/images/default-project.png'}" alt="" />
+          <h3>${escapeHtml(p.title)}</h3>
+          <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
+          ${p.profiles ? `<p class="member-location">by ${escapeHtml(p.profiles.full_name)}</p>` : ''}
+        </a>
+      `).join('');
+    }
+
+    document.getElementById('fStatus').addEventListener('change', search);
+    document.getElementById('fSort').addEventListener('change', search);
+    search();
+  </script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit My Profile</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="/pages/member/dashboard.html">Overview</a>
+        <a href="/pages/member/profile.html" class="active">My Profile</a>
+        <a href="/pages/member/skills.html">My Skills</a>
+        <a href="/pages/member/projects.html">My Projects</a>
+        <a href="/pages/member/settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:640px;">
+      <h1>Edit My Profile</h1>
+
+      <form id="profileForm" class="auth-card" style="max-width:none;padding:0;background:none;border:none;">
+        <label for="fullName">Full name</label>
+        <input id="fullName" required />
+
+        <label for="headline">Professional headline</label>
+        <input id="headline" placeholder="e.g. Frontend Developer & UI Designer" />
+
+        <label for="bio">Bio</label>
+        <textarea id="bio" rows="4"></textarea>
+
+        <label for="professionalStatus">Professional status</label>
+        <select id="professionalStatus">
+          <option value="">Select…</option>
+          <option value="student">Student</option>
+          <option value="freelancer">Freelancer</option>
+          <option value="entrepreneur">Entrepreneur</option>
+          <option value="employed">Employed</option>
+          <option value="job_seeker">Job seeker</option>
+          <option value="developer">Developer</option>
+          <option value="designer">Designer</option>
+          <option value="teacher">Teacher</option>
+          <option value="researcher">Researcher</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="experienceLevel">Experience level</label>
+        <select id="experienceLevel">
+          <option value="">Select…</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+          <option value="expert">Expert</option>
+        </select>
+
+        <label for="yearsExperience">Years of experience</label>
+        <input id="yearsExperience" type="number" min="0" max="80" />
+
+        <label for="availability">Availability</label>
+        <select id="availability">
+          <option value="not_available">Not available</option>
+          <option value="available_freelance">Available for freelance work</option>
+          <option value="open_to_opportunities">Open to opportunities</option>
+        </select>
+
+        <label for="town">Town</label>
+        <input id="town" />
+
+        <label for="state">State</label>
+        <input id="state" />
+
+        <label for="country">Country</label>
+        <input id="country" />
+
+        <label for="education">Education</label>
+        <input id="education" />
+
+        <label for="certifications">Certifications</label>
+        <input id="certifications" />
+
+        <label for="portfolioUrl">Portfolio URL</label>
+        <input id="portfolioUrl" type="url" />
+
+        <label for="githubUrl">GitHub URL</label>
+        <input id="githubUrl" type="url" />
+
+        <label for="linkedinUrl">LinkedIn URL</label>
+        <input id="linkedinUrl" type="url" />
+
+        <h3 style="margin-top:24px;">Privacy</h3>
+        <label for="phoneVisibility">Phone number visibility</label>
+        <select id="phoneVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <label for="emailVisibility">Email visibility</label>
+        <select id="emailVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <label for="locationVisibility">Location visibility</label>
+        <select id="locationVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <div id="formError" class="form-error" role="alert" hidden></div>
+        <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+        <button type="submit" class="btn-primary btn-large" id="saveBtn">Save Changes</button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    const fields = {
+      fullName: 'full_name', headline: 'professional_headline', bio: 'bio',
+      professionalStatus: 'professional_status', experienceLevel: 'experience_level',
+      yearsExperience: 'years_of_experience', availability: 'availability_status',
+      town: 'town', state: 'state', country: 'country', education: 'education',
+      certifications: 'certifications', portfolioUrl: 'portfolio_url',
+      githubUrl: 'github_url', linkedinUrl: 'linkedin_url',
+      phoneVisibility: 'phone_visibility', emailVisibility: 'email_visibility',
+      locationVisibility: 'location_visibility',
+    };
+
+    for (const [elId, col] of Object.entries(fields)) {
+      const el = document.getElementById(elId);
+      if (profile[col] !== null && profile[col] !== undefined) el.value = profile[col];
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const saveBtn = document.getElementById('saveBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const updates = {};
+      for (const [elId, col] of Object.entries(fields)) {
+        const el = document.getElementById(elId);
+        let val = el.value;
+        if (elId === 'yearsExperience') val = val ? parseInt(val, 10) : null;
+        if (val === '') val = null;
+        updates[col] = val;
+      }
+
+      // Note: role, is_verified, verification_status are intentionally
+      // never touched here — RLS would reject the update anyway, but
+      // we don't even attempt to send them (Section 29).
+      const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
+
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Changes';
+
+      if (error) {
+        errorBox.textContent = 'Could not save your profile. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+      successBox.textContent = 'Profile updated.';
+      successBox.hidden = false;
+    });
+  </script>
+</body>
+</html>

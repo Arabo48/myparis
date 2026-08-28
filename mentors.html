@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Mentors</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <link rel="stylesheet" href="/assets/css/admin-table.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="/pages/admin/dashboard.html">Overview</a>
+        <a href="/pages/admin/members.html">Members</a>
+        <a href="/pages/admin/skills.html">Skills &amp; Categories</a>
+        <a href="/pages/admin/opportunities.html">Opportunities</a>
+        <a href="/pages/admin/events.html">Events</a>
+        <a href="/pages/admin/mentors.html" class="active">Mentors</a>
+        <a href="/pages/admin/neighborhoods.html">Neighborhoods</a>
+        <a href="/pages/admin/announcements.html">Announcements</a>
+        <a href="/pages/admin/reports.html">Reports</a>
+        <a href="/pages/admin/verification.html">Verification Requests</a>
+        <a href="/pages/admin/audit-log.html">Audit Log</a>
+        <a href="/pages/admin/settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:900px;">
+      <h1>Manage Mentors</h1>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Areas</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="4" class="placeholder-text">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { logAdminAction } from '/assets/js/audit-log.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('mentors')
+        .select('id, is_approved, areas_of_mentorship, profiles(full_name, username)')
+        .order('created_at', { ascending: false });
+
+      const rows = document.getElementById('rows');
+      if (error || !data || data.length === 0) {
+        rows.innerHTML = '<tr><td colspan="4" class="placeholder-text">No mentor applications yet.</td></tr>';
+        return;
+      }
+
+      rows.innerHTML = data.map(m => `
+        <tr>
+          <td><a href="/members/${encodeURIComponent(m.profiles.username)}" target="_blank">${escapeHtml(m.profiles.full_name)}</a></td>
+          <td>${(m.areas_of_mentorship || []).map(escapeHtml).join(', ')}</td>
+          <td>${m.is_approved ? '<span class="status-badge">Approved</span>' : '<span class="status-badge" style="color:#FCD34D;">Pending</span>'}</td>
+          <td class="row-actions">
+            ${!m.is_approved ? `<button class="btn-ghost approve-btn" data-id="${m.id}">Approve</button>` : `<button class="btn-ghost revoke-btn" data-id="${m.id}">Revoke</button>`}
+          </td>
+        </tr>
+      `).join('');
+
+      rows.querySelectorAll('.approve-btn').forEach(btn => btn.addEventListener('click', async () => {
+        await supabase.from('mentors').update({ is_approved: true }).eq('id', btn.dataset.id);
+        await logAdminAction({ adminId: admin.id, action: 'mentor_approved', targetTable: 'mentors', targetId: btn.dataset.id });
+        load();
+      }));
+      rows.querySelectorAll('.revoke-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Revoke this mentor\'s approval?')) return;
+        await supabase.from('mentors').update({ is_approved: false }).eq('id', btn.dataset.id);
+        await logAdminAction({ adminId: admin.id, action: 'mentor_revoked', targetTable: 'mentors', targetId: btn.dataset.id });
+        load();
+      }));
+    }
+
+    load();
+  </script>
+</body>
+</html>

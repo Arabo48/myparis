@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <link rel="stylesheet" href="/assets/css/admin-table.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="/pages/admin/dashboard.html">Overview</a>
+        <a href="/pages/admin/members.html">Members</a>
+        <a href="/pages/admin/skills.html">Skills &amp; Categories</a>
+        <a href="/pages/admin/opportunities.html">Opportunities</a>
+        <a href="/pages/admin/events.html">Events</a>
+        <a href="/pages/admin/mentors.html">Mentors</a>
+        <a href="/pages/admin/neighborhoods.html">Neighborhoods</a>
+        <a href="/pages/admin/announcements.html">Announcements</a>
+        <a href="/pages/admin/reports.html" class="active">Reports</a>
+        <a href="/pages/admin/verification.html">Verification Requests</a>
+        <a href="/pages/admin/audit-log.html">Audit Log</a>
+        <a href="/pages/admin/settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:900px;">
+      <h1>Reports</h1>
+      <div class="filters-row" style="margin:16px 0;">
+        <select id="fStatus">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="under_review">Under review</option>
+          <option value="resolved">Resolved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div id="list" style="display:flex;flex-direction:column;gap:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { logAdminAction } from '/assets/js/audit-log.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const status = document.getElementById('fStatus').value;
+      let query = supabase
+        .from('reports')
+        .select('id, target_type, target_id, reason, details, status, created_at, profiles!reports_reported_by_fkey(full_name)')
+        .order('created_at', { ascending: false });
+      if (status) query = query.eq('status', status);
+
+      const { data, error } = await query;
+      const list = document.getElementById('list');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">No reports match.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(r => `
+        <div class="list-row">
+          <div>
+            <strong>${escapeHtml(r.reason)}</strong> <span class="status-badge">${escapeHtml(r.target_type)}</span>
+            <p class="placeholder-text" style="margin:4px 0;">${escapeHtml(r.details || '')}</p>
+            <p class="placeholder-text" style="margin:0;font-size:0.75rem;">Reported by ${escapeHtml(r.profiles?.full_name || 'Unknown')} · ${new Date(r.created_at).toLocaleString()}</p>
+          </div>
+          <select class="status-select" data-id="${r.id}">
+            <option value="pending" ${r.status === 'pending' ? 'selected' : ''}>Pending</option>
+            <option value="under_review" ${r.status === 'under_review' ? 'selected' : ''}>Under review</option>
+            <option value="resolved" ${r.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+            <option value="rejected" ${r.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+          </select>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.status-select').forEach(sel => sel.addEventListener('change', async () => {
+        await supabase.from('reports').update({ status: sel.value, handled_by: admin.id }).eq('id', sel.dataset.id);
+        await logAdminAction({ adminId: admin.id, action: 'report_status_changed', targetTable: 'reports', targetId: sel.dataset.id, metadata: { new_status: sel.value } });
+        load();
+      }));
+    }
+
+    document.getElementById('fStatus').addEventListener('change', load);
+    load();
+  </script>
+  <style>.list-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }</style>
+</body>
+</html>

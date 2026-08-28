@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MY TOWN DIGITAL &amp; TECH COMMUNITY</title>
+  <meta name="description" content="Discover talented young digital and tech professionals in our town. Profiles, projects, opportunities, mentorship and more." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="MY TOWN DIGITAL & TECH COMMUNITY" />
+  <meta property="og:description" content="Connecting young digital talent with mentors, opportunities and each other." />
+  <meta property="og:type" content="website" />
+
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html" id="brand-name">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" id="navToggle">☰</button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/members.html">Members</a></li>
+        <li><a href="/pages/public/skills.html">Skills</a></li>
+        <li><a href="/pages/public/projects.html">Projects</a></li>
+        <li><a href="/pages/public/opportunities.html">Opportunities</a></li>
+        <li><a href="/pages/public/events.html">Events</a></li>
+        <li><a href="/pages/public/mentorship.html">Mentorship</a></li>
+        <li><a href="/pages/public/services.html">Services</a></li>
+        <li><a href="/pages/public/announcements.html">News</a></li>
+        <li><a href="/pages/public/about.html">About</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+        <li><a href="/pages/public/register.html" class="btn-primary">Join Community</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main-content">
+
+    <section class="hero">
+      <h1>Discover the digital talent shaping our town's future.</h1>
+      <p>A home for young developers, designers, data professionals and entrepreneurs to showcase their skills, find opportunities, and connect with mentors.</p>
+      <div class="hero-actions">
+        <a href="/pages/public/register.html" class="btn-primary btn-large">Join the Community</a>
+        <a href="/pages/public/members.html" class="btn-ghost btn-large">Browse Members</a>
+      </div>
+      <dl class="hero-stats" id="heroStats" aria-label="Community statistics">
+        <div><dt id="statMembers">–</dt><dd>Members</dd></div>
+        <div><dt id="statSkills">–</dt><dd>Skills</dd></div>
+        <div><dt id="statProjects">–</dt><dd>Projects</dd></div>
+        <div><dt id="statOpportunities">–</dt><dd>Opportunities</dd></div>
+      </dl>
+    </section>
+
+    <section class="section" id="featuredMembers">
+      <h2>Featured Members</h2>
+      <div class="card-grid" id="featuredMembersGrid">
+        <p class="placeholder-text">Featured members will appear here once the platform has real data.</p>
+      </div>
+    </section>
+
+    <section class="section" id="featuredSkills">
+      <h2>Popular Skills</h2>
+      <div class="chip-grid" id="featuredSkillsGrid">
+        <p class="placeholder-text">Skill categories will appear here.</p>
+      </div>
+    </section>
+
+    <section class="section" id="recentProjects">
+      <h2>Recent Projects</h2>
+      <div class="card-grid" id="recentProjectsGrid">
+        <p class="placeholder-text">Recent projects will appear here.</p>
+      </div>
+    </section>
+
+    <section class="section" id="upcomingEvents">
+      <h2>Upcoming Events</h2>
+      <div class="card-grid" id="upcomingEventsGrid">
+        <p class="placeholder-text">Upcoming events will appear here.</p>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <h2>Have digital or tech skills? Show them off.</h2>
+      <a href="/pages/public/register.html" class="btn-primary btn-large">Create Your Profile</a>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" id="siteFooter">
+    <p>&copy; <span id="year"></span> MY TOWN DIGITAL &amp; TECH COMMUNITY. All rights reserved.</p>
+  </footer>
+
+  <script type="module" src="/assets/js/home.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('navToggle').addEventListener('click', () => {
+      const links = document.getElementById('navLinks');
+      const expanded = links.classList.toggle('open');
+      document.getElementById('navToggle').setAttribute('aria-expanded', String(expanded));
+    });
+  </script>
+</body>
+</html>

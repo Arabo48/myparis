@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">Event — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/profile.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/events.html">Events</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="profile-page" id="detailRoot">
+    <p class="placeholder-text">Loading…</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { getCurrentProfile } from '/assets/js/auth.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    function slugFromPath() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('s')) return params.get('s');
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] !== 'event-detail.html' ? parts[parts.length - 1] : null;
+    }
+
+    async function render() {
+      const slug = slugFromPath();
+      const root = document.getElementById('detailRoot');
+      if (!slug) { root.innerHTML = '<p class="placeholder-text">No event specified.</p>'; return; }
+
+      const { data: event, error } = await supabase.from('events').select('*').eq('slug', slug).maybeSingle();
+      if (error || !event) { root.innerHTML = '<p class="placeholder-text">This event could not be found.</p>'; return; }
+
+      document.getElementById('pageTitle').textContent = `${event.name} — MY TOWN DIGITAL & TECH COMMUNITY`;
+
+      const { count: registeredCount } = await supabase
+        .from('event_registrations').select('id', { count: 'exact', head: true }).eq('event_id', event.id);
+
+      const spotsLeft = event.max_attendees ? Math.max(event.max_attendees - (registeredCount || 0), 0) : null;
+
+      root.innerHTML = `
+        ${event.image_url ? `<img src="${event.image_url}" alt="" style="width:100%;border-radius:10px;margin-bottom:20px;" />` : ''}
+        <h1>${escapeHtml(event.name)}</h1>
+        <p class="profile-location">
+          📅 ${event.event_date}${event.start_time ? ' · ' + event.start_time : ''}${event.end_time ? '–' + event.end_time : ''}
+          ${event.location ? ' · 📍 ' + escapeHtml(event.location) : ''}
+        </p>
+        ${spotsLeft !== null ? `<p class="placeholder-text">${spotsLeft} of ${event.max_attendees} spots remaining</p>` : ''}
+
+        <div id="registerActions" style="margin:16px 0;"></div>
+
+        ${event.description ? `<section class="profile-section"><h2>About this event</h2><p>${escapeHtml(event.description)}</p></section>` : ''}
+        ${event.registration_link ? `<section class="profile-section"><a class="btn-primary" href="${escapeHtml(event.registration_link)}" target="_blank" rel="noopener">External Registration Link</a></section>` : ''}
+      `;
+
+      const actions = document.getElementById('registerActions');
+      const viewer = await getCurrentProfile();
+      if (!viewer) {
+        actions.innerHTML = `<a href="/pages/public/login.html" class="btn-ghost">Log in to register</a>`;
+        return;
+      }
+
+      const { data: existing } = await supabase
+        .from('event_registrations').select('id')
+        .eq('event_id', event.id).eq('profile_id', viewer.id).maybeSingle();
+
+      if (existing) {
+        actions.innerHTML = `<p class="notice">✅ You're registered for this event.</p><button class="btn-ghost" id="cancelRegBtn" style="margin-top:8px;">Cancel registration</button>`;
+        document.getElementById('cancelRegBtn').addEventListener('click', async () => {
+          await supabase.from('event_registrations').delete().eq('id', existing.id);
+          render();
+        });
+      } else if (spotsLeft === 0) {
+        actions.innerHTML = `<p class="placeholder-text">This event is full.</p>`;
+      } else {
+        actions.innerHTML = `<button class="btn-primary" id="registerBtn">Register for this Event</button>`;
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+          const { error: regError } = await supabase
+            .from('event_registrations').insert({ event_id: event.id, profile_id: viewer.id });
+          if (!regError) render();
+        });
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

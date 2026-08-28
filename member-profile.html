@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">Member Profile</title>
+  <meta name="description" id="pageDescription" content="Member profile" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <link rel="stylesheet" href="/assets/css/profile.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/members.html">Members</a></li>
+        <li><a href="/pages/public/projects.html">Projects</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="profileRoot" class="profile-page">
+    <p class="placeholder-text" id="loadingMsg">Loading profile…</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { getCurrentProfile } from '/assets/js/auth.js';
+
+    function usernameFromPath() {
+      // Supports both /members/:username (via Netlify/Vercel rewrite)
+      // and /pages/public/member-profile.html?u=username directly.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('u')) return params.get('u');
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] !== 'member-profile.html' ? parts[parts.length - 1] : null;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str ?? '';
+      return div.innerHTML;
+    }
+
+    function visible(value, visibility, isOwner, isLoggedIn) {
+      if (!value) return null;
+      if (isOwner) return value;
+      if (visibility === 'public') return value;
+      if (visibility === 'members_only' && isLoggedIn) return value;
+      return null;
+    }
+
+    async function render() {
+      const username = usernameFromPath();
+      const root = document.getElementById('profileRoot');
+
+      if (!username) {
+        root.innerHTML = '<p class="placeholder-text">No member specified.</p>';
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .maybeSingle();
+
+      if (error || !profile) {
+        root.innerHTML = '<p class="placeholder-text">This profile could not be found.</p>';
+        return;
+      }
+
+      if (profile.profile_visibility === 'private') {
+        const viewer = await getCurrentProfile();
+        if (!viewer || viewer.id !== profile.id) {
+          root.innerHTML = '<p class="placeholder-text">This profile is private.</p>';
+          return;
+        }
+      }
+
+      const viewer = await getCurrentProfile();
+      const isOwner = !!viewer && viewer.id === profile.id;
+      const isLoggedIn = !!viewer;
+
+      document.getElementById('pageTitle').textContent = `${profile.full_name} — MY TOWN DIGITAL & TECH COMMUNITY`;
+      document.getElementById('pageDescription').setAttribute('content', profile.professional_headline || '');
+
+      const [{ data: skills }, { data: projects }, { data: services }, { data: achievements }] = await Promise.all([
+        supabase.from('member_skills').select('skills(name)').eq('profile_id', profile.id),
+        supabase.from('projects').select('title, slug, status').eq('owner_id', profile.id).order('created_at', { ascending: false }),
+        supabase.from('services').select('title, price_rate').eq('profile_id', profile.id).eq('is_active', true),
+        supabase.from('achievements').select('title, organization, achieved_on, verification_status').eq('profile_id', profile.id),
+      ]);
+
+      const phone = visible(profile.phone_number, profile.phone_visibility, isOwner, isLoggedIn);
+      const email = visible(profile.email, profile.email_visibility, isOwner, isLoggedIn);
+      const location = visible([profile.town, profile.state, profile.country].filter(Boolean).join(', '), profile.location_visibility, isOwner, isLoggedIn);
+      const socials = visible(true, profile.social_links_visibility, isOwner, isLoggedIn);
+      const portfolio = visible(profile.portfolio_url, profile.portfolio_visibility, isOwner, isLoggedIn);
+
+      root.innerHTML = `
+        <div class="profile-header">
+          <img src="${profile.profile_photo_url || '/images/default-avatar.png'}" alt="" class="profile-avatar" />
+          <div>
+            <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? '<span class="verified-badge" title="Verified member">✅ Verified</span>' : ''}</h1>
+            <p class="profile-username">@${escapeHtml(profile.username)}</p>
+            <p class="profile-headline">${escapeHtml(profile.professional_headline || '')}</p>
+            ${location ? `<p class="profile-location">📍 ${escapeHtml(location)}</p>` : ''}
+            ${profile.availability_status && profile.availability_status !== 'not_available'
+              ? `<span class="availability-badge">${profile.availability_status === 'available_freelance' ? 'Available for freelance work' : 'Open to opportunities'}</span>`
+              : ''}
+            ${isOwner ? '<a href="/pages/member/profile.html" class="btn-ghost" style="margin-top:10px;display:inline-block;">Edit Profile</a>' : `<button class="btn-primary" id="contactBtn" style="margin-top:10px;">Contact</button> <a href="/pages/public/report.html?type=profile&id=${profile.id}" class="btn-ghost" style="margin-top:10px;display:inline-block;">Report</a>`}
+          </div>
+        </div>
+
+        ${profile.bio ? `<section class="profile-section"><h2>About</h2><p>${escapeHtml(profile.bio)}</p></section>` : ''}
+
+        ${skills && skills.length ? `
+        <section class="profile-section">
+          <h2>Skills</h2>
+          <div class="chip-grid">${skills.map(s => `<span class="chip">${escapeHtml(s.skills.name)}</span>`).join('')}</div>
+        </section>` : ''}
+
+        ${projects && projects.length ? `
+        <section class="profile-section">
+          <h2>Projects</h2>
+          <div class="card-grid">
+            ${projects.map(p => `
+              <a class="project-card" href="/projects/${encodeURIComponent(p.slug)}">
+                <h3>${escapeHtml(p.title)}</h3>
+                <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
+              </a>`).join('')}
+          </div>
+        </section>` : ''}
+
+        ${services && services.length ? `
+        <section class="profile-section">
+          <h2>Services</h2>
+          <ul class="plain-list">
+            ${services.map(s => `<li><strong>${escapeHtml(s.title)}</strong>${s.price_rate ? ` — ${escapeHtml(s.price_rate)}` : ''}</li>`).join('')}
+          </ul>
+        </section>` : ''}
+
+        ${achievements && achievements.length ? `
+        <section class="profile-section">
+          <h2>Achievements</h2>
+          <ul class="plain-list">
+            ${achievements.map(a => `<li><strong>${escapeHtml(a.title)}</strong>${a.organization ? ` — ${escapeHtml(a.organization)}` : ''} ${a.verification_status === 'approved' ? '✅' : ''}</li>`).join('')}
+          </ul>
+        </section>` : ''}
+
+        ${(email || phone || (socials && (profile.github_url || profile.linkedin_url || profile.twitter_url || profile.youtube_url || profile.facebook_url)) || portfolio) ? `
+        <section class="profile-section">
+          <h2>Connect</h2>
+          <ul class="plain-list">
+            ${email ? `<li>Email: ${escapeHtml(email)}</li>` : ''}
+            ${phone ? `<li>Phone: ${escapeHtml(phone)}</li>` : ''}
+            ${portfolio ? `<li><a href="${escapeHtml(portfolio)}" target="_blank" rel="noopener">Portfolio</a></li>` : ''}
+            ${socials && profile.github_url ? `<li><a href="${escapeHtml(profile.github_url)}" target="_blank" rel="noopener">GitHub</a></li>` : ''}
+            ${socials && profile.linkedin_url ? `<li><a href="${escapeHtml(profile.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a></li>` : ''}
+            ${socials && profile.twitter_url ? `<li><a href="${escapeHtml(profile.twitter_url)}" target="_blank" rel="noopener">X / Twitter</a></li>` : ''}
+            ${socials && profile.youtube_url ? `<li><a href="${escapeHtml(profile.youtube_url)}" target="_blank" rel="noopener">YouTube</a></li>` : ''}
+          </ul>
+        </section>` : ''}
+      `;
+
+      const contactBtn = document.getElementById('contactBtn');
+      if (contactBtn) {
+        contactBtn.addEventListener('click', () => {
+          window.location.href = `/pages/public/contact-member.html?u=${encodeURIComponent(profile.username)}`;
+        });
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

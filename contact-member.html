@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Member</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <main class="auth-page">
+    <form class="auth-card" id="contactForm" novalidate>
+      <h1 id="formHeading">Contact this member</h1>
+      <p class="auth-subtitle" id="formSubtitle">Send a message — your email will only be shared if you enter it below.</p>
+
+      <label for="senderName">Your name</label>
+      <input id="senderName" required />
+
+      <label for="senderEmail">Your email</label>
+      <input id="senderEmail" type="email" required />
+
+      <label for="message">Message</label>
+      <textarea id="message" rows="5" required placeholder="What would you like to hire them for, or ask them about?"></textarea>
+
+      <div id="formError" class="form-error" role="alert" hidden></div>
+      <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+      <button type="submit" class="btn-primary btn-large" id="submitBtn">Send Message</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get('u');
+    let targetProfileId = null;
+
+    async function init() {
+      if (!username) {
+        document.getElementById('formHeading').textContent = 'No member specified';
+        document.getElementById('contactForm').hidden = true;
+        return;
+      }
+
+      const { data, error } = await supabase.from('profiles').select('id, full_name').eq('username', username).maybeSingle();
+      if (error || !data) {
+        document.getElementById('formHeading').textContent = 'Member not found';
+        document.getElementById('contactForm').hidden = true;
+        return;
+      }
+
+      targetProfileId = data.id;
+      document.getElementById('formHeading').textContent = `Contact ${data.full_name}`;
+    }
+
+    document.getElementById('contactForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!targetProfileId) return;
+
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const btn = document.getElementById('submitBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
+      const payload = {
+        target_profile_id: targetProfileId,
+        sender_name: document.getElementById('senderName').value.trim(),
+        sender_email: document.getElementById('senderEmail').value.trim(),
+        message: document.getElementById('message').value.trim(),
+      };
+
+      const { error } = await supabase.from('contact_requests').insert(payload);
+      btn.disabled = false;
+      btn.textContent = 'Send Message';
+
+      if (error) {
+        errorBox.textContent = 'Could not send your message. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      successBox.textContent = 'Message sent! They\'ll see it in their dashboard.';
+      successBox.hidden = false;
+      document.getElementById('contactForm').reset();
+    });
+
+    init();
+  </script>
+</body>
+</html>

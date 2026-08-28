@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Neighborhoods</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <link rel="stylesheet" href="/assets/css/admin-table.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="/pages/admin/dashboard.html">Overview</a>
+        <a href="/pages/admin/members.html">Members</a>
+        <a href="/pages/admin/skills.html">Skills &amp; Categories</a>
+        <a href="/pages/admin/opportunities.html">Opportunities</a>
+        <a href="/pages/admin/events.html">Events</a>
+        <a href="/pages/admin/mentors.html">Mentors</a>
+        <a href="/pages/admin/neighborhoods.html" class="active">Neighborhoods</a>
+        <a href="/pages/admin/announcements.html">Announcements</a>
+        <a href="/pages/admin/reports.html">Reports</a>
+        <a href="/pages/admin/verification.html">Verification Requests</a>
+        <a href="/pages/admin/audit-log.html">Audit Log</a>
+        <a href="/pages/admin/settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:600px;">
+      <h1>Neighborhoods</h1>
+      <p class="placeholder-text">Manage the neighborhood list members choose from during registration and profile editing.</p>
+
+      <div style="display:flex;gap:10px;margin:16px 0;">
+        <input id="newName" placeholder="New neighborhood name" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+        <button class="btn-primary" id="addBtn">Add</button>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Active</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="3" class="placeholder-text">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase.from('neighborhoods').select('*').order('name');
+      const rows = document.getElementById('rows');
+      if (error || !data || data.length === 0) {
+        rows.innerHTML = '<tr><td colspan="3" class="placeholder-text">No neighborhoods added yet.</td></tr>';
+        return;
+      }
+      rows.innerHTML = data.map(n => `
+        <tr>
+          <td>${escapeHtml(n.name)}</td>
+          <td>${n.is_active ? '✅' : '—'}</td>
+          <td class="row-actions">
+            <button class="btn-ghost toggle-btn" data-id="${n.id}" data-active="${n.is_active}">${n.is_active ? 'Deactivate' : 'Activate'}</button>
+            <button class="btn-ghost delete-btn" data-id="${n.id}" style="color:#FCA5A5;">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+
+      rows.querySelectorAll('.toggle-btn').forEach(btn => btn.addEventListener('click', async () => {
+        await supabase.from('neighborhoods').update({ is_active: btn.dataset.active !== 'true' }).eq('id', btn.dataset.id);
+        load();
+      }));
+      rows.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Delete this neighborhood?')) return;
+        await supabase.from('neighborhoods').delete().eq('id', btn.dataset.id);
+        load();
+      }));
+    }
+
+    document.getElementById('addBtn').addEventListener('click', async () => {
+      const input = document.getElementById('newName');
+      const name = input.value.trim();
+      if (!name) return;
+      const { error } = await supabase.from('neighborhoods').insert({ name, created_by: admin.id });
+      if (!error) { input.value = ''; load(); } else { alert('Could not add neighborhood (it may already exist).'); }
+    });
+
+    load();
+  </script>
+</body>
+</html>

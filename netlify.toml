@@ -1,0 +1,23 @@
+[build]
+  command = "npm run build"
+  publish = "."
+
+[[redirects]]
+  from = "/members/:username"
+  to = "/pages/public/member-profile.html?u=:username"
+  status = 200
+
+[[redirects]]
+  from = "/projects/:slug"
+  to = "/pages/public/project-detail.html?s=:slug"
+  status = 200
+
+[[redirects]]
+  from = "/opportunities/:slug"
+  to = "/pages/public/opportunity-detail.html?s=:slug"
+  status = 200
+
+[[redirects]]
+  from = "/events/:slug"
+  to = "/pages/public/event-detail.html?s=:slug"
+  status = 200

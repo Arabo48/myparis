@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community News — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/profile.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/announcements.html">News</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="profile-page">
+    <h1>Community News</h1>
+    <div id="list" style="margin-top:20px;">
+      <p class="placeholder-text">Loading…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('title, body, created_at')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('list');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">No announcements yet.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <section class="profile-section">
+          <h2 style="font-size:1.05rem;">${escapeHtml(a.title)}</h2>
+          <p class="placeholder-text" style="font-size:0.78rem;margin:0 0 8px;">${new Date(a.created_at).toLocaleDateString()}</p>
+          <p>${escapeHtml(a.body)}</p>
+        </section>
+      `).join('');
+    }
+
+    load();
+  </script>
+</body>
+</html>

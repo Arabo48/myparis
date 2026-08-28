@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">Opportunity — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/profile.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/opportunities.html">Opportunities</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="profile-page" id="detailRoot">
+    <p class="placeholder-text">Loading…</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { getCurrentProfile } from '/assets/js/auth.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    function slugFromPath() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('s')) return params.get('s');
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] !== 'opportunity-detail.html' ? parts[parts.length - 1] : null;
+    }
+
+    async function render() {
+      const slug = slugFromPath();
+      const root = document.getElementById('detailRoot');
+      if (!slug) { root.innerHTML = '<p class="placeholder-text">No opportunity specified.</p>'; return; }
+
+      const { data: opp, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_approved', true)
+        .maybeSingle();
+
+      if (error || !opp) {
+        root.innerHTML = '<p class="placeholder-text">This opportunity could not be found.</p>';
+        return;
+      }
+
+      document.getElementById('pageTitle').textContent = `${opp.title} — MY TOWN DIGITAL & TECH COMMUNITY`;
+      const viewer = await getCurrentProfile();
+
+      root.innerHTML = `
+        <span class="status-badge">${escapeHtml(opp.category)}</span>
+        <h1 style="margin:10px 0 6px;">${escapeHtml(opp.title)}</h1>
+        <p class="profile-username">${escapeHtml(opp.organization_name || '')}</p>
+        <p class="profile-location">
+          ${opp.location ? '📍 ' + escapeHtml(opp.location) : ''} ${opp.mode ? '· ' + opp.mode : ''}
+          ${opp.deadline ? '· Deadline: ' + opp.deadline : ''}
+        </p>
+
+        <div id="saveActions" style="margin:16px 0;"></div>
+
+        ${opp.description ? `<section class="profile-section"><h2>Description</h2><p>${escapeHtml(opp.description)}</p></section>` : ''}
+        ${opp.requirements ? `<section class="profile-section"><h2>Requirements</h2><p>${escapeHtml(opp.requirements)}</p></section>` : ''}
+
+        ${opp.application_link ? `
+        <section class="profile-section">
+          <a class="btn-primary" href="${escapeHtml(opp.application_link)}" target="_blank" rel="noopener">Apply Now</a>
+        </section>` : ''}
+      `;
+
+      const saveActions = document.getElementById('saveActions');
+      if (!viewer) {
+        saveActions.innerHTML = `<a href="/pages/public/login.html" class="btn-ghost">Log in to save this opportunity</a>`;
+        return;
+      }
+
+      const { data: saved } = await supabase
+        .from('saved_opportunities')
+        .select('id, status')
+        .eq('profile_id', viewer.id)
+        .eq('opportunity_id', opp.id)
+        .maybeSingle();
+
+      renderSaveControls(saveActions, viewer.id, opp.id, saved);
+    }
+
+    function renderSaveControls(container, profileId, opportunityId, saved) {
+      const statuses = ['interested', 'applied', 'completed'];
+      container.innerHTML = `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span class="placeholder-text">Your status:</span>
+          ${statuses.map(s => `
+            <button type="button" class="btn-ghost status-btn" data-status="${s}"
+              style="${saved && saved.status === s ? 'border-color:var(--color-primary);color:var(--color-accent);' : ''}">
+              ${s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          `).join('')}
+          ${saved ? `<button type="button" class="btn-ghost" id="removeSavedBtn" style="color:#FCA5A5;">Remove</button>` : ''}
+        </div>
+      `;
+
+      container.querySelectorAll('.status-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const status = btn.dataset.status;
+          if (saved) {
+            await supabase.from('saved_opportunities').update({ status }).eq('id', saved.id);
+          } else {
+            const { data } = await supabase
+              .from('saved_opportunities')
+              .insert({ profile_id: profileId, opportunity_id: opportunityId, status })
+              .select()
+              .single();
+            saved = data;
+          }
+          const { data: refreshed } = await supabase
+            .from('saved_opportunities').select('id, status')
+            .eq('profile_id', profileId).eq('opportunity_id', opportunityId).maybeSingle();
+          renderSaveControls(container, profileId, opportunityId, refreshed);
+        });
+      });
+
+      const removeBtn = document.getElementById('removeSavedBtn');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', async () => {
+          await supabase.from('saved_opportunities').delete().eq('id', saved.id);
+          renderSaveControls(container, profileId, opportunityId, null);
+        });
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

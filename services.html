@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Services Marketplace — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/search.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/members.html">Members</a></li>
+        <li><a href="/pages/public/services.html">Services</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="search-page">
+    <h1>Services Marketplace</h1>
+    <div class="search-bar">
+      <input type="text" id="qText" placeholder="Search services (e.g. 'video editing', 'website')…" />
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div class="card-grid" id="resultsGrid"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    async function search() {
+      const q = document.getElementById('qText').value.trim();
+      let query = supabase
+        .from('services')
+        .select('title, description, price_rate, profiles(username, full_name)', { count: 'exact' })
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+
+      const { data, count, error } = await query.limit(48);
+      const grid = document.getElementById('resultsGrid');
+      document.getElementById('resultCount').textContent = `${count || 0} service${count === 1 ? '' : 's'}`;
+
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No services match yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(s => `
+        <a class="member-card" href="${s.profiles ? '/members/' + encodeURIComponent(s.profiles.username) : '#'}">
+          <h3>${escapeHtml(s.title)}</h3>
+          <p>${escapeHtml((s.description || '').slice(0, 100))}${(s.description || '').length > 100 ? '…' : ''}</p>
+          ${s.price_rate ? `<p class="member-location">${escapeHtml(s.price_rate)}</p>` : ''}
+          ${s.profiles ? `<p class="member-location">by ${escapeHtml(s.profiles.full_name)}</p>` : ''}
+        </a>
+      `).join('');
+    }
+
+    document.getElementById('qText').addEventListener('input', debounce(search, 350));
+    search();
+  </script>
+</body>
+</html>

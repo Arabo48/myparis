@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join the Community</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <main class="auth-page">
+    <form class="auth-card" id="registerForm" novalidate>
+      <h1>Create your profile</h1>
+      <p class="auth-subtitle">Join other young digital professionals in your town.</p>
+
+      <label for="fullName">Full name</label>
+      <input id="fullName" name="fullName" type="text" required autocomplete="name" />
+
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" required minlength="3" pattern="[a-zA-Z0-9_\.]+"
+             title="Letters, numbers, underscores and periods only" autocomplete="username" />
+
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="email" />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password" />
+
+      <div id="formError" class="form-error" role="alert" hidden></div>
+      <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+      <button type="submit" class="btn-primary btn-large" id="submitBtn">Create Account</button>
+
+      <p class="auth-footer">Already have an account? <a href="/pages/public/login.html">Log in</a></p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { registerUser } from '/assets/js/auth.js';
+
+    const form = document.getElementById('registerForm');
+    const errorBox = document.getElementById('formError');
+    const successBox = document.getElementById('formSuccess');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating account…';
+
+      const fullName = document.getElementById('fullName').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const result = await registerUser({ email, password, fullName, username });
+
+      if (result.error) {
+        errorBox.textContent = result.error;
+        errorBox.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Account';
+        return;
+      }
+
+      successBox.textContent = 'Account created! Check your email to confirm your address, then log in.';
+      successBox.hidden = false;
+      form.reset();
+      submitBtn.textContent = 'Create Account';
+      submitBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>

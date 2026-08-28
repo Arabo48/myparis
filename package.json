@@ -1,0 +1,13 @@
+{
+  "name": "my-town-digital-tech-community",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital & Tech Skills Youth Community Platform — HTML/CSS/JS frontend on Supabase.",
+  "scripts": {
+    "build": "node scripts/generate-env.js",
+    "dev": "node scripts/generate-env.js && npx serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

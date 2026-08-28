@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post an Opportunity</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="/pages/member/dashboard.html">Overview</a>
+        <a href="/pages/member/post-opportunity.html" class="active">Post an Opportunity</a>
+        <a href="/pages/member/my-opportunities-posted.html">My Posted Opportunities</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:600px;">
+      <h1>Post an Opportunity</h1>
+      <p class="placeholder-text" style="margin-bottom:16px;">
+        Only administrators and approved organization accounts can post opportunities.
+        New postings go live immediately for admins; organization postings may require admin approval
+        depending on platform settings.
+      </p>
+
+      <form id="oppForm" class="auth-card" style="max-width:none;padding:0;background:none;border:none;">
+        <label for="oTitle">Title</label>
+        <input id="oTitle" required />
+
+        <label for="oCategory">Category</label>
+        <select id="oCategory" required>
+          <option value="job">Job</option>
+          <option value="internship">Internship</option>
+          <option value="scholarship">Scholarship</option>
+          <option value="fellowship">Fellowship</option>
+          <option value="training">Training</option>
+          <option value="competition">Competition</option>
+          <option value="grant">Grant</option>
+          <option value="freelance">Freelance</option>
+          <option value="volunteer">Volunteer</option>
+          <option value="hackathon">Hackathon</option>
+        </select>
+
+        <label for="oOrgName">Organization name</label>
+        <input id="oOrgName" />
+
+        <label for="oDescription">Description</label>
+        <textarea id="oDescription" rows="4"></textarea>
+
+        <label for="oRequirements">Requirements</label>
+        <textarea id="oRequirements" rows="3"></textarea>
+
+        <label for="oLocation">Location</label>
+        <input id="oLocation" />
+
+        <label for="oMode">Mode</label>
+        <select id="oMode">
+          <option value="">Select…</option>
+          <option value="remote">Remote</option>
+          <option value="onsite">On-site</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+
+        <label for="oDeadline">Application deadline</label>
+        <input id="oDeadline" type="date" />
+
+        <label for="oAppLink">Application link</label>
+        <input id="oAppLink" type="url" />
+
+        <div id="formError" class="form-error" role="alert" hidden></div>
+        <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+        <button type="submit" class="btn-primary btn-large" id="submitBtn">Publish Opportunity</button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { uniqueSlug } from '/assets/js/utils.js';
+
+    // RLS backs this up server-side — a member account cannot insert
+    // into `opportunities` even if they reach this page directly.
+    const profile = await requireRole(['organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    document.getElementById('oppForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const btn = document.getElementById('submitBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Publishing…';
+
+      const title = document.getElementById('oTitle').value.trim();
+      const isAutoApproved = ['admin', 'super_admin'].includes(profile.role);
+
+      const payload = {
+        title,
+        category: document.getElementById('oCategory').value,
+        organization_name: document.getElementById('oOrgName').value.trim() || null,
+        description: document.getElementById('oDescription').value.trim() || null,
+        requirements: document.getElementById('oRequirements').value.trim() || null,
+        location: document.getElementById('oLocation').value.trim() || null,
+        mode: document.getElementById('oMode').value || null,
+        deadline: document.getElementById('oDeadline').value || null,
+        application_link: document.getElementById('oAppLink').value.trim() || null,
+        posted_by: profile.id,
+        is_approved: isAutoApproved,
+      };
+
+      try {
+        const slug = await uniqueSlug(title, async (candidate) => {
+          const { data } = await supabase.from('opportunities').select('id').eq('slug', candidate).maybeSingle();
+          return !!data;
+        });
+        const { error } = await supabase.from('opportunities').insert({ ...payload, slug });
+        if (error) throw error;
+
+        successBox.textContent = isAutoApproved
+          ? 'Opportunity published.'
+          : 'Opportunity submitted — it will appear once an admin approves it.';
+        successBox.hidden = false;
+        document.getElementById('oppForm').reset();
+      } catch (err) {
+        errorBox.textContent = 'Could not publish the opportunity. Please check the fields and try again.';
+        errorBox.hidden = false;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Publish Opportunity';
+      }
+    });
+  </script>
+</body>
+</html>

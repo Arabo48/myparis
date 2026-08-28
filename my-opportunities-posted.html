@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Posted Opportunities</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="/pages/member/dashboard.html">Overview</a>
+        <a href="/pages/member/post-opportunity.html">Post an Opportunity</a>
+        <a href="/pages/member/my-opportunities-posted.html" class="active">My Posted Opportunities</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <h1>My Posted Opportunities</h1>
+      <div id="list" style="display:flex;flex-direction:column;gap:12px;margin-top:16px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    const profile = await requireRole(['organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('id, title, slug, category, is_approved, created_at')
+        .eq('posted_by', profile.id)
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('list');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">You haven\'t posted any opportunities yet.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(o => `
+        <div class="list-row">
+          <div>
+            <a href="/opportunities/${encodeURIComponent(o.slug)}"><strong>${escapeHtml(o.title)}</strong></a>
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(o.category)}</p>
+          </div>
+          <span class="status-badge">${o.is_approved ? 'Live' : 'Pending approval'}</span>
+        </div>
+      `).join('');
+    }
+
+    load();
+  </script>
+  <style>
+    .list-row { display: flex; justify-content: space-between; align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }
+  </style>
+</body>
+</html>

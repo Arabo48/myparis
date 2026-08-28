@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mentorship — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/search.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/pages/public/mentorship.html">Mentorship</a></li>
+        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="search-page">
+    <h1>Find a Mentor</h1>
+    <p class="placeholder-text" style="margin-bottom:20px;">Connect with experienced members willing to guide you.</p>
+    <div class="card-grid" id="mentorsGrid"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { getCurrentProfile } from '/assets/js/auth.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('mentors')
+        .select('id, areas_of_mentorship, availability, profiles(username, full_name, professional_headline, profile_photo_url)')
+        .eq('is_approved', true);
+
+      const grid = document.getElementById('mentorsGrid');
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No approved mentors yet — check back soon.</p>';
+        return;
+      }
+
+      const viewer = await getCurrentProfile();
+
+      grid.innerHTML = data.map(m => `
+        <div class="member-card">
+          <a href="/members/${encodeURIComponent(m.profiles.username)}" style="display:block;">
+            <img src="${m.profiles.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
+            <h3>${escapeHtml(m.profiles.full_name)}</h3>
+            <p>${escapeHtml(m.profiles.professional_headline || '')}</p>
+            ${m.areas_of_mentorship && m.areas_of_mentorship.length ? `<p class="member-location">${m.areas_of_mentorship.map(escapeHtml).join(', ')}</p>` : ''}
+          </a>
+          <button type="button" class="btn-ghost request-btn" data-mentor-id="${m.id}" style="margin-top:10px;">Request Mentorship</button>
+        </div>
+      `).join('');
+
+      grid.querySelectorAll('.request-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!viewer) { window.location.href = '/pages/public/login.html'; return; }
+          const message = prompt('Introduce yourself and say what you\'re hoping for from this mentorship:');
+          if (message === null) return;
+          const { error: reqError } = await supabase.from('mentorship_requests').insert({
+            mentor_id: btn.dataset.mentorId, requester_id: viewer.id, message: message.trim() || null,
+          });
+          btn.textContent = reqError ? 'Could not send request' : 'Request sent ✓';
+          btn.disabled = true;
+        });
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>

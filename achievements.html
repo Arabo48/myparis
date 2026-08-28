@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Achievements</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/forms.css" />
+  <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <script src="/assets/js/env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="/pages/member/dashboard.html">Overview</a>
+        <a href="/pages/member/profile.html">My Profile</a>
+        <a href="/pages/member/skills.html">My Skills</a>
+        <a href="/pages/member/projects.html">My Projects</a>
+        <a href="/pages/member/services.html">My Services</a>
+        <a href="/pages/member/achievements.html" class="active">My Achievements</a>
+        <a href="/pages/member/settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>My Achievements</h1>
+        <button class="btn-primary" id="newAchievementBtn">+ Add Achievement</button>
+      </div>
+
+      <div id="achievementList" style="margin-top:20px;display:flex;flex-direction:column;gap:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <div id="achievementModal" class="modal-overlay" hidden>
+    <form class="modal-card" id="achievementForm">
+      <h2>Add Achievement</h2>
+
+      <label for="aTitle">Achievement title</label>
+      <input id="aTitle" required placeholder="e.g. 1st Place — State Hackathon 2025" />
+
+      <label for="aOrganization">Organization</label>
+      <input id="aOrganization" />
+
+      <label for="aDate">Date</label>
+      <input id="aDate" type="date" />
+
+      <label for="aDescription">Description</label>
+      <textarea id="aDescription" rows="3"></textarea>
+
+      <label for="aCertificateUrl">Certificate/image URL (optional)</label>
+      <input id="aCertificateUrl" type="url" />
+
+      <div id="modalError" class="form-error" role="alert" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="saveBtn">Save Achievement</button>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { requireRole } from '/assets/js/auth.js';
+    import { supabase } from '/assets/js/supabase-client.js';
+    import { escapeHtml } from '/assets/js/utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    const statusLabel = {
+      unverified: 'Not submitted',
+      pending: 'Verification pending',
+      approved: '✅ Verified',
+      rejected: 'Verification rejected',
+      more_info_requested: 'More info requested',
+    };
+
+    async function loadAchievements() {
+      const { data, error } = await supabase
+        .from('achievements')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('achievementList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">No achievements added yet.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <div class="list-row">
+          <div>
+            <strong>${escapeHtml(a.title)}</strong>
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(a.organization || '')} ${a.achieved_on ? '· ' + a.achieved_on : ''}</p>
+            <p class="placeholder-text" style="margin:2px 0 0;">${statusLabel[a.verification_status] || ''}</p>
+          </div>
+          <div class="list-row-actions">
+            <button class="btn-ghost delete-btn" data-id="${a.id}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.delete-btn').forEach(btn =>
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this achievement?')) return;
+          await supabase.from('achievements').delete().eq('id', btn.dataset.id);
+          loadAchievements();
+        }));
+    }
+
+    function openModal() {
+      document.getElementById('achievementForm').reset();
+      document.getElementById('modalError').hidden = true;
+      document.getElementById('achievementModal').hidden = false;
+    }
+    function closeModal() { document.getElementById('achievementModal').hidden = true; }
+
+    document.getElementById('newAchievementBtn').addEventListener('click', openModal);
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+
+    document.getElementById('achievementForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('modalError');
+      const saveBtn = document.getElementById('saveBtn');
+      errorBox.hidden = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const payload = {
+        profile_id: profile.id,
+        title: document.getElementById('aTitle').value.trim(),
+        organization: document.getElementById('aOrganization').value.trim() || null,
+        achieved_on: document.getElementById('aDate').value || null,
+        description: document.getElementById('aDescription').value.trim() || null,
+        certificate_url: document.getElementById('aCertificateUrl').value.trim() || null,
+      };
+
+      const { error } = await supabase.from('achievements').insert(payload);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Achievement';
+
+      if (error) {
+        errorBox.textContent = 'Could not save the achievement. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+      closeModal();
+      loadAchievements();
+    });
+
+    loadAchievements();
+  </script>
+  <style>
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .modal-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-card label { font-size: 0.85rem; color: var(--color-text-muted); margin: 12px 0 6px; }
+    .modal-card input, .modal-card select, .modal-card textarea { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; color: var(--color-text); font-family: inherit; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .list-row { display: flex; justify-content: space-between; align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }
+    .list-row-actions { display: flex; gap: 8px; }
+  </style>
+</body>
+</html>
