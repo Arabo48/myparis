@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log In</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <main class="auth-page">
+    <form class="auth-card" id="loginForm" novalidate>
+      <h1>Welcome back</h1>
+
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="email" />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password" />
+
+      <div id="formError" class="form-error" role="alert" hidden></div>
+
+      <button type="submit" class="btn-primary btn-large" id="submitBtn">Log In</button>
+
+      <p class="auth-footer">
+        <a href="#" id="forgotPasswordLink">Forgot password?</a> ·
+        No account? <a href="public-register.html">Join now</a>
+      </p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { loginUser, getCurrentProfile, requestPasswordReset } from './auth.js';
+
+    document.getElementById('forgotPasswordLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = prompt('Enter your account email to receive a password reset link:');
+      if (!email) return;
+      const result = await requestPasswordReset(email.trim());
+      alert(result.error || 'If that email is registered, a reset link has been sent.');
+    });
+
+    const form = document.getElementById('loginForm');
+    const errorBox = document.getElementById('formError');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in…';
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const result = await loginUser({ email, password });
+
+      if (result.error) {
+        errorBox.textContent = result.error;
+        errorBox.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Log In';
+        return;
+      }
+
+      const profile = await getCurrentProfile();
+      const destination = profile && ['admin', 'super_admin'].includes(profile.role)
+        ? 'admin-dashboard.html'
+        : 'member-dashboard.html';
+      window.location.href = destination;
+    });
+  </script>
+</body>
+</html>

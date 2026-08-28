@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Skills</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="profile.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-skills.html" class="active">My Skills</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:640px;">
+      <h1>My Skills</h1>
+
+      <div class="auth-card" style="max-width:none;padding:0;background:none;border:none;">
+        <label for="skillSelect">Add a skill</label>
+        <div style="display:flex;gap:10px;">
+          <select id="skillSelect" style="flex:1;"></select>
+          <button class="btn-primary" id="addSkillBtn" type="button">Add</button>
+        </div>
+        <div id="formError" class="form-error" role="alert" hidden></div>
+      </div>
+
+      <h2 style="margin-top:30px;font-size:1.05rem;">Your skills</h2>
+      <div class="chip-grid" id="mySkillsGrid" style="margin-top:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str ?? '';
+      return div.innerHTML;
+    }
+
+    async function loadAllSkills() {
+      const { data } = await supabase.from('skills').select('id, name').order('name');
+      const select = document.getElementById('skillSelect');
+      select.innerHTML = (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }
+
+    async function loadMySkills() {
+      const { data, error } = await supabase
+        .from('member_skills')
+        .select('id, is_primary, skills(id, name)')
+        .eq('profile_id', profile.id);
+
+      const grid = document.getElementById('mySkillsGrid');
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">You haven\'t added any skills yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(row => `
+        <span class="chip" style="display:inline-flex;align-items:center;gap:8px;">
+          ${escapeHtml(row.skills.name)} ${row.is_primary ? '⭐' : ''}
+          <button type="button" data-id="${row.id}" class="remove-skill-btn" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;">✕</button>
+        </span>
+      `).join('');
+
+      grid.querySelectorAll('.remove-skill-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await supabase.from('member_skills').delete().eq('id', btn.dataset.id);
+          loadMySkills();
+        });
+      });
+    }
+
+    document.getElementById('addSkillBtn').addEventListener('click', async () => {
+      const skillId = document.getElementById('skillSelect').value;
+      const errorBox = document.getElementById('formError');
+      errorBox.hidden = true;
+      if (!skillId) return;
+
+      const { error } = await supabase.from('member_skills').insert({ profile_id: profile.id, skill_id: skillId });
+      if (error) {
+        errorBox.textContent = error.code === '23505' ? 'You already added that skill.' : 'Could not add skill.';
+        errorBox.hidden = false;
+        return;
+      }
+      loadMySkills();
+    });
+
+    loadAllSkills();
+    loadMySkills();
+  </script>
+</body>
+</html>

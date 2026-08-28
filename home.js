@@ -35,7 +35,7 @@ async function loadFeaturedMembers() {
   }
 
   grid.innerHTML = data.map(m => `
-    <a class="member-card" href="/members/${encodeURIComponent(m.username)}">
+    <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(m.username)}">
       <img src="${m.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
       <h3>${escapeHtml(m.full_name)} ${m.is_verified ? '✅' : ''}</h3>
       <p>${escapeHtml(m.professional_headline || '')}</p>
@@ -57,7 +57,7 @@ async function loadRecentProjects() {
   }
 
   grid.innerHTML = data.map(p => `
-    <a class="project-card" href="/projects/${encodeURIComponent(p.slug)}">
+    <a class="project-card" href="public-project-detail.html?s=${encodeURIComponent(p.slug)}">
       <img src="${p.image_url || '/images/default-project.png'}" alt="" />
       <h3>${escapeHtml(p.title)}</h3>
       <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
@@ -81,7 +81,7 @@ async function loadUpcomingEvents() {
   }
 
   grid.innerHTML = data.map(e => `
-    <a class="event-card" href="/events/${encodeURIComponent(e.slug)}">
+    <a class="event-card" href="public-event-detail.html?s=${encodeURIComponent(e.slug)}">
       <h3>${escapeHtml(e.name)}</h3>
       <p>${e.event_date} — ${escapeHtml(e.location || 'TBA')}</p>
     </a>

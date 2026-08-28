@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Events</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-opportunities.html">Opportunities</a>
+        <a href="member-events.html" class="active">Events</a>
+        <a href="member-mentorship.html">Mentorship</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>My Events</h1>
+        <button class="btn-primary" id="newEventBtn">+ Organize an Event</button>
+      </div>
+
+      <h2 style="font-size:1.05rem;margin-top:26px;">My Registrations</h2>
+      <div id="regList" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+
+      <h2 style="font-size:1.05rem;margin-top:30px;">Events I'm Organizing</h2>
+      <div id="organizedList" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <div id="eventModal" class="modal-overlay" hidden>
+    <form class="modal-card" id="eventForm">
+      <h2>Organize an Event</h2>
+
+      <label for="eName">Event name</label>
+      <input id="eName" required />
+
+      <label for="eDescription">Description</label>
+      <textarea id="eDescription" rows="3"></textarea>
+
+      <label for="eDate">Date</label>
+      <input id="eDate" type="date" required />
+
+      <label for="eStartTime">Start time</label>
+      <input id="eStartTime" type="time" />
+
+      <label for="eEndTime">End time</label>
+      <input id="eEndTime" type="time" />
+
+      <label for="eLocation">Location</label>
+      <input id="eLocation" placeholder="Venue or 'Online'" />
+
+      <label for="eMaxAttendees">Maximum attendees (optional)</label>
+      <input id="eMaxAttendees" type="number" min="1" />
+
+      <label for="eRegLink">External registration link (optional)</label>
+      <input id="eRegLink" type="url" />
+
+      <div id="modalError" class="form-error" role="alert" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="saveBtn">Publish Event</button>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { uniqueSlug, escapeHtml } from './utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    async function loadRegistrations() {
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('id, events(name, slug, event_date, location)')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('regList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">You haven\'t registered for any events yet.</p>';
+        return;
+      }
+      list.innerHTML = data.map(r => `
+        <div class="list-row">
+          <div>
+            <a href="public-event-detail.html?s=${encodeURIComponent(r.events.slug)}"><strong>${escapeHtml(r.events.name)}</strong></a>
+            <p class="placeholder-text" style="margin:4px 0 0;">${r.events.event_date} · ${escapeHtml(r.events.location || 'TBA')}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadOrganized() {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, slug, event_date')
+        .eq('organizer_id', profile.id)
+        .order('event_date', { ascending: false });
+
+      const list = document.getElementById('organizedList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">You aren\'t organizing any events yet.</p>';
+        return;
+      }
+
+      const withCounts = await Promise.all(data.map(async e => {
+        const { count } = await supabase.from('event_registrations').select('id', { count: 'exact', head: true }).eq('event_id', e.id);
+        return { ...e, count: count || 0 };
+      }));
+
+      list.innerHTML = withCounts.map(e => `
+        <div class="list-row">
+          <div>
+            <a href="public-event-detail.html?s=${encodeURIComponent(e.slug)}"><strong>${escapeHtml(e.name)}</strong></a>
+            <p class="placeholder-text" style="margin:4px 0 0;">${e.event_date} · ${e.count} registered</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openModal() {
+      document.getElementById('eventForm').reset();
+      document.getElementById('modalError').hidden = true;
+      document.getElementById('eventModal').hidden = false;
+    }
+    function closeModal() { document.getElementById('eventModal').hidden = true; }
+
+    document.getElementById('newEventBtn').addEventListener('click', openModal);
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+
+    document.getElementById('eventForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('modalError');
+      const saveBtn = document.getElementById('saveBtn');
+      errorBox.hidden = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Publishing…';
+
+      const name = document.getElementById('eName').value.trim();
+      const payload = {
+        name,
+        description: document.getElementById('eDescription').value.trim() || null,
+        event_date: document.getElementById('eDate').value,
+        start_time: document.getElementById('eStartTime').value || null,
+        end_time: document.getElementById('eEndTime').value || null,
+        location: document.getElementById('eLocation').value.trim() || null,
+        max_attendees: document.getElementById('eMaxAttendees').value ? parseInt(document.getElementById('eMaxAttendees').value, 10) : null,
+        registration_link: document.getElementById('eRegLink').value.trim() || null,
+        organizer_id: profile.id,
+      };
+
+      try {
+        const slug = await uniqueSlug(name, async (candidate) => {
+          const { data } = await supabase.from('events').select('id').eq('slug', candidate).maybeSingle();
+          return !!data;
+        });
+        const { error } = await supabase.from('events').insert({ ...payload, slug });
+        if (error) throw error;
+        closeModal();
+        loadOrganized();
+      } catch (err) {
+        errorBox.textContent = 'Could not publish the event. Please check the fields and try again.';
+        errorBox.hidden = false;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Publish Event';
+      }
+    });
+
+    loadRegistrations();
+    loadOrganized();
+  </script>
+  <style>
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .modal-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-card label { font-size: 0.85rem; color: var(--color-text-muted); margin: 12px 0 6px; }
+    .modal-card input, .modal-card select, .modal-card textarea { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; color: var(--color-text); font-family: inherit; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .list-row { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }
+  </style>
+</body>
+</html>

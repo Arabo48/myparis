@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Services</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-skills.html">My Skills</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-services.html" class="active">My Services</a>
+        <a href="member-achievements.html">My Achievements</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>My Services</h1>
+        <button class="btn-primary" id="newServiceBtn">+ New Service</button>
+      </div>
+
+      <div id="serviceList" style="margin-top:20px;display:flex;flex-direction:column;gap:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <div id="serviceModal" class="modal-overlay" hidden>
+    <form class="modal-card" id="serviceForm">
+      <h2 id="modalTitle">New Service</h2>
+
+      <label for="sTitle">Service title</label>
+      <input id="sTitle" required placeholder="e.g. Custom website development" />
+
+      <label for="sDescription">Description</label>
+      <textarea id="sDescription" rows="4"></textarea>
+
+      <label for="sPrice">Price / rate</label>
+      <input id="sPrice" placeholder="e.g. ₦50,000 or Negotiable" />
+
+      <label for="sDelivery">Delivery period</label>
+      <input id="sDelivery" placeholder="e.g. 5–7 business days" />
+
+      <label for="sContact">Preferred contact method</label>
+      <input id="sContact" placeholder="e.g. WhatsApp, email" />
+
+      <label class="checkbox-label"><input type="checkbox" id="sActive" checked /> Active (visible in the directory)</label>
+
+      <div id="modalError" class="form-error" role="alert" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="saveServiceBtn">Save Service</button>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    let editingId = null;
+
+    async function loadServices() {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      const list = document.getElementById('serviceList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">You haven\'t listed any services yet.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(s => `
+        <div class="list-row">
+          <div>
+            <strong>${escapeHtml(s.title)}</strong> ${!s.is_active ? '<span class="placeholder-text">(inactive)</span>' : ''}
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(s.price_rate || '')}</p>
+          </div>
+          <div class="list-row-actions">
+            <button class="btn-ghost edit-btn" data-id="${s.id}">Edit</button>
+            <button class="btn-ghost delete-btn" data-id="${s.id}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.edit-btn').forEach(btn =>
+        btn.addEventListener('click', () => openModal(data.find(s => s.id === btn.dataset.id))));
+      list.querySelectorAll('.delete-btn').forEach(btn =>
+        btn.addEventListener('click', () => deleteService(btn.dataset.id)));
+    }
+
+    async function deleteService(id) {
+      if (!confirm('Delete this service listing?')) return;
+      await supabase.from('services').delete().eq('id', id);
+      loadServices();
+    }
+
+    function openModal(service = null) {
+      editingId = service?.id || null;
+      document.getElementById('modalTitle').textContent = service ? 'Edit Service' : 'New Service';
+      document.getElementById('sTitle').value = service?.title || '';
+      document.getElementById('sDescription').value = service?.description || '';
+      document.getElementById('sPrice').value = service?.price_rate || '';
+      document.getElementById('sDelivery').value = service?.delivery_period || '';
+      document.getElementById('sContact').value = service?.contact_method || '';
+      document.getElementById('sActive').checked = service ? service.is_active : true;
+      document.getElementById('modalError').hidden = true;
+      document.getElementById('serviceModal').hidden = false;
+    }
+
+    function closeModal() { document.getElementById('serviceModal').hidden = true; }
+
+    document.getElementById('newServiceBtn').addEventListener('click', () => openModal());
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+
+    document.getElementById('serviceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('modalError');
+      const saveBtn = document.getElementById('saveServiceBtn');
+      errorBox.hidden = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const payload = {
+        title: document.getElementById('sTitle').value.trim(),
+        description: document.getElementById('sDescription').value.trim() || null,
+        price_rate: document.getElementById('sPrice').value.trim() || null,
+        delivery_period: document.getElementById('sDelivery').value.trim() || null,
+        contact_method: document.getElementById('sContact').value.trim() || null,
+        is_active: document.getElementById('sActive').checked,
+      };
+
+      try {
+        if (editingId) {
+          const { error } = await supabase.from('services').update(payload).eq('id', editingId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('services').insert({ ...payload, profile_id: profile.id });
+          if (error) throw error;
+        }
+        closeModal();
+        loadServices();
+      } catch (err) {
+        errorBox.textContent = 'Could not save the service. Please try again.';
+        errorBox.hidden = false;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Service';
+      }
+    });
+
+    loadServices();
+  </script>
+  <style>
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .modal-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-card label { font-size: 0.85rem; color: var(--color-text-muted); margin: 12px 0 6px; }
+    .modal-card input, .modal-card select, .modal-card textarea { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; color: var(--color-text); font-family: inherit; }
+    .checkbox-label { display: flex; align-items: center; gap: 8px; flex-direction: row !important; margin-top: 16px !important; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .list-row { display: flex; justify-content: space-between; align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }
+    .list-row-actions { display: flex; gap: 8px; }
+  </style>
+</body>
+</html>

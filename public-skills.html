@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skills Directory — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="main.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="public-members.html">Members</a></li>
+        <li><a href="public-skills.html">Skills</a></li>
+        <li><a href="public-login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="section" style="max-width:1000px;margin:0 auto;">
+    <h1 style="margin-bottom:6px;">Skills Directory</h1>
+    <p class="placeholder-text" style="margin-bottom:28px;">Browse the skills represented in our community. Click any skill to see members who have it.</p>
+    <div id="categoriesRoot"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str ?? '';
+      return div.innerHTML;
+    }
+
+    async function render() {
+      const { data: categories, error } = await supabase
+        .from('skill_categories')
+        .select('id, name, skills(id, name)')
+        .order('sort_order', { ascending: true });
+
+      const root = document.getElementById('categoriesRoot');
+      if (error || !categories || categories.length === 0) {
+        root.innerHTML = '<p class="placeholder-text">No skill categories have been added yet.</p>';
+        return;
+      }
+
+      root.innerHTML = categories.map(cat => `
+        <section class="profile-section" style="border-top:1px solid var(--color-border);padding-top:20px;margin-top:20px;">
+          <h2 style="font-size:1.05rem;margin-bottom:10px;">${escapeHtml(cat.name)}</h2>
+          <div class="chip-grid">
+            ${(cat.skills || []).length
+              ? cat.skills.map(s => `<a class="chip" href="public-members.html?skill=${encodeURIComponent(s.id)}">${escapeHtml(s.name)}</a>`).join('')
+              : '<span class="placeholder-text">No skills added in this category yet.</span>'}
+          </div>
+        </section>
+      `).join('');
+    }
+
+    render();
+  </script>
+  <link rel="stylesheet" href="profile.css" />
+</body>
+</html>

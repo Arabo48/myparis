@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <meta name="description" content="Learn about MY TOWN DIGITAL & TECH COMMUNITY — a platform connecting young digital and tech talent." />
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="profile.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="index.html" id="brand-name">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="public-members.html">Members</a></li>
+        <li><a href="public-opportunities.html">Opportunities</a></li>
+        <li><a href="public-about.html">About</a></li>
+        <li><a href="public-login.html" class="btn-ghost">Login</a></li>
+        <li><a href="public-register.html" class="btn-primary">Join Community</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="profile-page">
+    <h1>About This Community</h1>
+    <section class="profile-section" style="border:none;padding-top:0;margin-top:0;" id="aboutBody">
+      <p>MY TOWN DIGITAL &amp; TECH COMMUNITY exists to discover, showcase, and connect young people
+      building digital and technology skills in our town — developers, designers, data professionals,
+      creators, and entrepreneurs.</p>
+      <p>Every member gets a professional profile to display their skills, projects, and services.
+      Organizations and mentors can find real, verified talent. Members can find opportunities, events,
+      and mentors to help them grow.</p>
+    </section>
+
+    <section class="profile-section" id="contactSection"></section>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    async function loadSettings() {
+      const { data } = await supabase
+        .from('platform_settings')
+        .select('platform_name, description, contact_email, contact_phone, community_location')
+        .limit(1)
+        .maybeSingle();
+
+      if (!data) return;
+
+      if (data.platform_name) {
+        document.title = `About — ${data.platform_name}`;
+        document.getElementById('brand-name').textContent = data.platform_name;
+      }
+
+      if (data.description) {
+        document.getElementById('aboutBody').innerHTML =
+          `<p>${escapeHtml(data.description)}</p>`;
+      }
+
+      const contactParts = [];
+      if (data.community_location) contactParts.push(`📍 ${escapeHtml(data.community_location)}`);
+      if (data.contact_email) contactParts.push(`✉️ ${escapeHtml(data.contact_email)}`);
+      if (data.contact_phone) contactParts.push(`📞 ${escapeHtml(data.contact_phone)}`);
+
+      if (contactParts.length) {
+        document.getElementById('contactSection').innerHTML =
+          `<h2>Contact</h2><p>${contactParts.join(' &nbsp;·&nbsp; ')}</p>`;
+      }
+    }
+
+    loadSettings();
+  </script>
+</body>
+</html>

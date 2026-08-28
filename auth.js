@@ -33,7 +33,7 @@ export async function registerUser({ email, password, fullName, username }) {
     password,
     options: {
       data: { full_name: fullName, username }, // consumed by handle_new_user() trigger
-      emailRedirectTo: `${window.location.origin}/pages/public/verify-email.html`,
+      emailRedirectTo: `${window.location.origin}/public-login.html`,
     },
   });
 
@@ -63,7 +63,7 @@ export async function logoutUser() {
 
 export async function requestPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/pages/public/reset-password.html`,
+    redirectTo: `${window.location.origin}/public-login.html`,
   });
   if (error) return { error: 'Could not send reset email. Please try again.' };
   return { success: true };
@@ -98,15 +98,15 @@ export async function getCurrentProfile() {
 export async function requireRole(allowedRoles = []) {
   const profile = await getCurrentProfile();
   if (!profile) {
-    window.location.href = '/pages/public/login.html';
+    window.location.href = 'public-login.html';
     return null;
   }
   if (profile.is_suspended) {
-    window.location.href = '/pages/public/suspended.html';
+    window.location.href = 'public-suspended.html';
     return null;
   }
   if (allowedRoles.length && !allowedRoles.includes(profile.role)) {
-    window.location.href = '/pages/public/not-authorized.html';
+    window.location.href = 'public-not-authorized.html';
     return null;
   }
   return profile;

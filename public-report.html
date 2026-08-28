@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Content</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <main class="auth-page">
+    <form class="auth-card" id="reportForm" novalidate>
+      <h1>Report a Problem</h1>
+      <p class="auth-subtitle">Help us keep the community trustworthy. You must be logged in to submit a report.</p>
+
+      <label for="targetType">What are you reporting?</label>
+      <select id="targetType" required>
+        <option value="profile">A member profile</option>
+        <option value="project">A project</option>
+        <option value="service">A service listing</option>
+        <option value="opportunity">An opportunity</option>
+        <option value="other">Something else</option>
+      </select>
+
+      <label for="reason">Reason</label>
+      <select id="reason" required>
+        <option value="Fake profile">Fake profile</option>
+        <option value="Inappropriate content">Inappropriate content</option>
+        <option value="Spam">Spam</option>
+        <option value="Fraudulent opportunity">Fraudulent opportunity</option>
+        <option value="Misleading information">Misleading information</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <label for="details">Details</label>
+      <textarea id="details" rows="4" placeholder="Add any context that will help admins review this."></textarea>
+
+      <div id="formError" class="form-error" role="alert" hidden></div>
+      <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+      <button type="submit" class="btn-primary btn-large" id="submitBtn">Submit Report</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+    import { getCurrentProfile } from './auth.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get('id') || null;
+    if (params.get('type')) document.getElementById('targetType').value = params.get('type');
+
+    document.getElementById('reportForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const btn = document.getElementById('submitBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+
+      const viewer = await getCurrentProfile();
+      if (!viewer) {
+        errorBox.textContent = 'Please log in to submit a report.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      const payload = {
+        reported_by: viewer.id,
+        target_type: document.getElementById('targetType').value,
+        target_id: targetId,
+        reason: document.getElementById('reason').value,
+        details: document.getElementById('details').value.trim() || null,
+      };
+
+      const { error } = await supabase.from('reports').insert(payload);
+      btn.disabled = false;
+      btn.textContent = 'Submit Report';
+
+      if (error) {
+        errorBox.textContent = 'Could not submit your report. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      successBox.textContent = 'Thank you — your report has been submitted for review.';
+      successBox.hidden = false;
+      document.getElementById('reportForm').reset();
+    });
+  </script>
+</body>
+</html>

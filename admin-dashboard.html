@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html" class="active">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+        <button id="logoutBtn" class="logout-btn">Log out</button>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <h1>Platform Overview</h1>
+
+      <section class="stat-cards">
+        <div class="stat-card"><span id="totalMembers">–</span><label>Total members</label></div>
+        <div class="stat-card"><span id="verifiedMembers">–</span><label>Verified members</label></div>
+        <div class="stat-card"><span id="unverifiedMembers">–</span><label>Unverified members</label></div>
+        <div class="stat-card"><span id="totalSkills">–</span><label>Skills</label></div>
+        <div class="stat-card"><span id="totalProjects">–</span><label>Projects</label></div>
+        <div class="stat-card"><span id="totalOpportunities">–</span><label>Opportunities</label></div>
+        <div class="stat-card"><span id="totalEvents">–</span><label>Events</label></div>
+        <div class="stat-card"><span id="totalMentors">–</span><label>Mentors</label></div>
+        <div class="stat-card"><span id="totalOrganizations">–</span><label>Organizations</label></div>
+        <div class="stat-card"><span id="pendingVerifications">–</span><label>Pending verification</label></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole, logoutUser } from './auth.js';
+    import { supabase } from './supabase-client.js';
+
+    // Only admins/super_admins ever reach this page — everyone else is
+    // redirected by requireRole, and RLS backs this up server-side too.
+    const profile = await requireRole(['admin', 'super_admin']);
+
+    if (profile) {
+      const counts = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_verified', false),
+        supabase.from('skills').select('id', { count: 'exact', head: true }),
+        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('opportunities').select('id', { count: 'exact', head: true }),
+        supabase.from('events').select('id', { count: 'exact', head: true }),
+        supabase.from('mentors').select('id', { count: 'exact', head: true }),
+        supabase.from('organizations').select('id', { count: 'exact', head: true }),
+        supabase.from('verification_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      ]);
+
+      const ids = [
+        'totalMembers', 'verifiedMembers', 'unverifiedMembers', 'totalSkills',
+        'totalProjects', 'totalOpportunities', 'totalEvents', 'totalMentors',
+        'totalOrganizations', 'pendingVerifications',
+      ];
+      ids.forEach((id, i) => {
+        document.getElementById(id).textContent = counts[i].count ?? 0;
+      });
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logoutUser();
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

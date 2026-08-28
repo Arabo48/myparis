@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mentorship</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-opportunities.html">Opportunities</a>
+        <a href="member-events.html">Events</a>
+        <a href="member-mentorship.html" class="active">Mentorship</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <h1>Mentorship</h1>
+
+      <section class="profile-section" style="border:none;padding-top:0;margin-top:0;">
+        <h2 style="font-size:1.05rem;">Become a Mentor</h2>
+        <div id="mentorApplySection"><p class="placeholder-text">Loading…</p></div>
+      </section>
+
+      <section class="profile-section">
+        <h2 style="font-size:1.05rem;">Mentorship Requests I've Sent</h2>
+        <div id="sentRequests" style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+          <p class="placeholder-text">Loading…</p>
+        </div>
+      </section>
+
+      <section class="profile-section" id="incomingSection" hidden>
+        <h2 style="font-size:1.05rem;">Requests From Mentees</h2>
+        <div id="incomingRequests" style="display:flex;flex-direction:column;gap:10px;margin-top:12px;"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    async function loadMentorStatus() {
+      const { data: mentorRow } = await supabase
+        .from('mentors').select('id, is_approved, areas_of_mentorship, availability')
+        .eq('profile_id', profile.id).maybeSingle();
+
+      const box = document.getElementById('mentorApplySection');
+
+      if (mentorRow) {
+        box.innerHTML = mentorRow.is_approved
+          ? '<p>✅ You are an approved mentor. Requests from mentees appear below.</p>'
+          : '<p class="notice">Your mentor application is pending admin approval.</p>';
+        if (mentorRow.is_approved) {
+          document.getElementById('incomingSection').hidden = false;
+          loadIncomingRequests(mentorRow.id);
+        }
+        return;
+      }
+
+      box.innerHTML = `
+        <label for="areas">Areas of mentorship (comma-separated)</label>
+        <input id="areas" placeholder="e.g. Web Development, Career Advice" style="width:100%;margin-bottom:10px;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+        <label for="availability">Availability</label>
+        <input id="availability" placeholder="e.g. Weekends, 1 hour/week" style="width:100%;margin-bottom:10px;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+        <button class="btn-primary" id="applyMentorBtn">Apply to Become a Mentor</button>
+        <div id="mentorError" class="form-error" role="alert" hidden style="margin-top:10px;"></div>
+      `;
+
+      document.getElementById('applyMentorBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('applyMentorBtn');
+        const errorBox = document.getElementById('mentorError');
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+
+        const areas = document.getElementById('areas').value.split(',').map(a => a.trim()).filter(Boolean);
+        const availability = document.getElementById('availability').value.trim() || null;
+
+        const { error } = await supabase.from('mentors').insert({
+          profile_id: profile.id, areas_of_mentorship: areas, availability,
+        });
+
+        if (error) {
+          errorBox.textContent = 'Could not submit your application. Please try again.';
+          errorBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Apply to Become a Mentor';
+          return;
+        }
+        loadMentorStatus();
+      });
+    }
+
+    async function loadSentRequests() {
+      const { data, error } = await supabase
+        .from('mentorship_requests')
+        .select('id, status, message, mentors(profiles(username, full_name))')
+        .eq('requester_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      const box = document.getElementById('sentRequests');
+      if (error || !data || data.length === 0) {
+        box.innerHTML = `<p class="placeholder-text">You haven't requested mentorship yet. <a href="public-mentorship.html">Find a mentor</a>.</p>`;
+        return;
+      }
+
+      box.innerHTML = data.map(r => `
+        <div class="list-row">
+          <div>
+            <strong>${escapeHtml(r.mentors.profiles.full_name)}</strong>
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(r.message || '')}</p>
+          </div>
+          <span class="status-badge">${escapeHtml(r.status)}</span>
+        </div>
+      `).join('');
+    }
+
+    async function loadIncomingRequests(mentorId) {
+      const { data, error } = await supabase
+        .from('mentorship_requests')
+        .select('id, status, message, profiles!mentorship_requests_requester_id_fkey(full_name, username)')
+        .eq('mentor_id', mentorId)
+        .order('created_at', { ascending: false });
+
+      const box = document.getElementById('incomingRequests');
+      if (error || !data || data.length === 0) {
+        box.innerHTML = '<p class="placeholder-text">No mentorship requests yet.</p>';
+        return;
+      }
+
+      box.innerHTML = data.map(r => `
+        <div class="list-row">
+          <div>
+            <a href="public-member-profile.html?u=${encodeURIComponent(r.profiles.username)}"><strong>${escapeHtml(r.profiles.full_name)}</strong></a>
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(r.message || '')}</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            ${r.status === 'pending' ? `
+              <button class="btn-ghost accept-btn" data-id="${r.id}">Accept</button>
+              <button class="btn-ghost reject-btn" data-id="${r.id}">Reject</button>
+            ` : `<span class="status-badge">${escapeHtml(r.status)}</span>`}
+          </div>
+        </div>
+      `).join('');
+
+      box.querySelectorAll('.accept-btn').forEach(btn =>
+        btn.addEventListener('click', async () => {
+          await supabase.from('mentorship_requests').update({ status: 'accepted' }).eq('id', btn.dataset.id);
+          loadMentorStatus();
+        }));
+      box.querySelectorAll('.reject-btn').forEach(btn =>
+        btn.addEventListener('click', async () => {
+          await supabase.from('mentorship_requests').update({ status: 'rejected' }).eq('id', btn.dataset.id);
+          loadMentorStatus();
+        }));
+    }
+
+    loadMentorStatus();
+    loadSentRequests();
+  </script>
+  <style>
+    .list-row { display: flex; justify-content: space-between; align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }
+  </style>
+</body>
+</html>

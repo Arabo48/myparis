@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Events — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="search.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="public-opportunities.html">Opportunities</a></li>
+        <li><a href="public-events.html">Events</a></li>
+        <li><a href="public-login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="search-page">
+    <h1>Events</h1>
+    <div class="filters-row">
+      <select id="fTime">
+        <option value="upcoming">Upcoming</option>
+        <option value="past">Past</option>
+      </select>
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div class="card-grid" id="resultsGrid"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    async function search() {
+      const timeframe = document.getElementById('fTime').value;
+      const today = new Date().toISOString().slice(0, 10);
+
+      let query = supabase
+        .from('events')
+        .select('name, slug, event_date, location, image_url', { count: 'exact' });
+
+      query = timeframe === 'upcoming'
+        ? query.gte('event_date', today).order('event_date', { ascending: true })
+        : query.lt('event_date', today).order('event_date', { ascending: false });
+
+      const { data, count, error } = await query.limit(48);
+      const grid = document.getElementById('resultsGrid');
+      document.getElementById('resultCount').textContent = `${count || 0} event${count === 1 ? '' : 's'}`;
+
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No events to show.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(e => `
+        <a class="event-card" href="public-event-detail.html?s=${encodeURIComponent(e.slug)}">
+          <h3>${escapeHtml(e.name)}</h3>
+          <p>${e.event_date} — ${escapeHtml(e.location || 'TBA')}</p>
+        </a>
+      `).join('');
+    }
+
+    document.getElementById('fTime').addEventListener('change', search);
+    search();
+  </script>
+</body>
+</html>

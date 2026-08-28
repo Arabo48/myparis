@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Announcements</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html" class="active">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <h1>Announcements</h1>
+
+      <form id="newForm" class="auth-card" style="max-width:none;padding:0;background:none;border:none;margin-bottom:24px;">
+        <label for="title">Title</label>
+        <input id="title" required />
+        <label for="body">Body</label>
+        <textarea id="body" rows="3" required></textarea>
+        <label class="checkbox-label" style="flex-direction:row !important;align-items:center;gap:8px;margin-top:12px;"><input type="checkbox" id="published" checked /> Published (visible to everyone)</label>
+        <button type="submit" class="btn-primary" style="margin-top:14px;">Post Announcement</button>
+      </form>
+
+      <div id="list" style="display:flex;flex-direction:column;gap:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+      const list = document.getElementById('list');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">No announcements posted yet.</p>';
+        return;
+      }
+      list.innerHTML = data.map(a => `
+        <div class="list-row">
+          <div>
+            <strong>${escapeHtml(a.title)}</strong> ${!a.is_published ? '<span class="placeholder-text">(unpublished)</span>' : ''}
+            <p style="margin:4px 0 0;">${escapeHtml(a.body)}</p>
+          </div>
+          <button class="btn-ghost delete-btn" data-id="${a.id}" style="color:#FCA5A5;">Delete</button>
+        </div>
+      `).join('');
+      list.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Delete this announcement?')) return;
+        await supabase.from('announcements').delete().eq('id', btn.dataset.id);
+        load();
+      }));
+    }
+
+    document.getElementById('newForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        posted_by: admin.id,
+        title: document.getElementById('title').value.trim(),
+        body: document.getElementById('body').value.trim(),
+        is_published: document.getElementById('published').checked,
+      };
+      const { error } = await supabase.from('announcements').insert(payload);
+      if (!error) { document.getElementById('newForm').reset(); document.getElementById('published').checked = true; load(); }
+    });
+
+    load();
+  </script>
+  <style>.list-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; }</style>
+</body>
+</html>

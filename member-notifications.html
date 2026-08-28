@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-notifications.html" class="active">Notifications</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>Notifications</h1>
+        <button class="btn-ghost" id="markAllReadBtn">Mark all as read</button>
+      </div>
+      <div id="notifList" style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    function timeAgo(dateStr) {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    }
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      const list = document.getElementById('notifList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">You have no notifications yet.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(n => `
+        <div class="notif-row ${n.is_read ? '' : 'unread'}" data-id="${n.id}">
+          <div>
+            <strong>${escapeHtml(n.title)}</strong>
+            <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(n.body || '')}</p>
+            <p class="placeholder-text" style="margin:2px 0 0;font-size:0.75rem;">${timeAgo(n.created_at)}</p>
+          </div>
+          ${n.link ? `<a href="${escapeHtml(n.link)}" class="btn-ghost">View</a>` : ''}
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.notif-row.unread').forEach(row => {
+        row.addEventListener('click', async () => {
+          await supabase.from('notifications').update({ is_read: true }).eq('id', row.dataset.id);
+          row.classList.remove('unread');
+        });
+      });
+    }
+
+    document.getElementById('markAllReadBtn').addEventListener('click', async () => {
+      await supabase.from('notifications').update({ is_read: true }).eq('profile_id', profile.id).eq('is_read', false);
+      load();
+    });
+
+    load();
+  </script>
+  <style>
+    .notif-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius); padding: 14px 16px; cursor: pointer;
+    }
+    .notif-row.unread { border-left: 3px solid var(--color-primary); background: var(--color-surface-2); }
+  </style>
+</body>
+</html>

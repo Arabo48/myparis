@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Events</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="admin-table.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html" class="active">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:1000px;">
+      <h1>Manage Events</h1>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Date</th><th>Organizer</th><th>Registered</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5" class="placeholder-text">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div id="attendeesPanel" class="attendees-panel" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h2 id="attendeesTitle" style="font-size:1.05rem;">Attendees</h2>
+          <button class="btn-ghost" id="closeAttendeesBtn">Close</button>
+        </div>
+        <div id="attendeesList" style="margin-top:12px;"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { logAdminAction } from './audit-log.js';
+    import { escapeHtml } from './utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, slug, event_date, profiles(full_name)')
+        .order('event_date', { ascending: false })
+        .limit(100);
+
+      const rows = document.getElementById('rows');
+      if (error || !data || data.length === 0) {
+        rows.innerHTML = '<tr><td colspan="5" class="placeholder-text">No events yet.</td></tr>';
+        return;
+      }
+
+      const withCounts = await Promise.all(data.map(async e => {
+        const { count } = await supabase.from('event_registrations').select('id', { count: 'exact', head: true }).eq('event_id', e.id);
+        return { ...e, count: count || 0 };
+      }));
+
+      rows.innerHTML = withCounts.map(e => `
+        <tr>
+          <td><a href="public-event-detail.html?s=${encodeURIComponent(e.slug)}" target="_blank">${escapeHtml(e.name)}</a></td>
+          <td>${e.event_date}</td>
+          <td>${escapeHtml(e.profiles?.full_name || '—')}</td>
+          <td>${e.count}</td>
+          <td class="row-actions">
+            <button class="btn-ghost view-attendees-btn" data-id="${e.id}" data-name="${escapeHtml(e.name)}">View Attendees</button>
+            <button class="btn-ghost delete-btn" data-id="${e.id}" style="color:#FCA5A5;">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+
+      rows.querySelectorAll('.view-attendees-btn').forEach(btn => btn.addEventListener('click', () => showAttendees(btn.dataset.id, btn.dataset.name)));
+      rows.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Delete this event?')) return;
+        await supabase.from('events').delete().eq('id', btn.dataset.id);
+        await logAdminAction({ adminId: admin.id, action: 'event_deleted', targetTable: 'events', targetId: btn.dataset.id });
+        load();
+      }));
+    }
+
+    async function showAttendees(eventId, eventName) {
+      document.getElementById('attendeesTitle').textContent = `Attendees — ${eventName}`;
+      document.getElementById('attendeesPanel').hidden = false;
+
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('registered_at, profiles(full_name, email, username)')
+        .eq('event_id', eventId)
+        .order('registered_at', { ascending: true });
+
+      const list = document.getElementById('attendeesList');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="placeholder-text">No one has registered yet.</p>';
+        return;
+      }
+
+      list.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Registered</th></tr></thead>
+          <tbody>
+            ${data.map(r => `
+              <tr>
+                <td><a href="public-member-profile.html?u=${encodeURIComponent(r.profiles.username)}" target="_blank">${escapeHtml(r.profiles.full_name)}</a></td>
+                <td>${escapeHtml(r.profiles.email)}</td>
+                <td>${new Date(r.registered_at).toLocaleDateString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('closeAttendeesBtn').addEventListener('click', () => {
+      document.getElementById('attendeesPanel').hidden = true;
+    });
+
+    load();
+  </script>
+  <style>
+    .attendees-panel { margin-top: 24px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 18px; }
+  </style>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-skills.html">My Skills</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-services.html">My Services</a>
+        <a href="member-achievements.html">My Achievements</a>
+        <a href="member-settings.html" class="active">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:600px;">
+      <h1>Settings</h1>
+
+      <section class="profile-section" style="border:none;padding-top:0;margin-top:0;">
+        <h2 style="font-size:1.05rem;">Verification</h2>
+        <div id="verificationStatus"></div>
+      </section>
+
+      <section class="profile-section">
+        <h2 style="font-size:1.05rem;">Account</h2>
+        <p class="placeholder-text">Signed in as <strong id="accountEmail"></strong></p>
+        <button class="btn-ghost" id="resetPwBtn" style="margin-top:8px;">Send password reset email</button>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole, requestPasswordReset } from './auth.js';
+    import { supabase } from './supabase-client.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    document.getElementById('accountEmail').textContent = profile.email;
+
+    async function renderVerification() {
+      const box = document.getElementById('verificationStatus');
+
+      if (profile.verification_status === 'approved') {
+        box.innerHTML = '<p>✅ Your profile is verified.</p>';
+        return;
+      }
+
+      const { data: existingRequest } = await supabase
+        .from('verification_requests')
+        .select('status, created_at')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingRequest && existingRequest.status === 'pending') {
+        box.innerHTML = `<p class="notice">Your verification request is pending admin review.</p>`;
+        return;
+      }
+
+      box.innerHTML = `
+        <p class="placeholder-text" style="margin-bottom:10px;">
+          Complete your profile (bio, skills, at least one project) and request verification
+          to earn a badge admins have confirmed as genuine.
+        </p>
+        <label for="supportingInfo">Anything else admins should know? (optional)</label>
+        <textarea id="supportingInfo" rows="3" style="width:100%;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);margin-bottom:10px;"></textarea>
+        <button class="btn-primary" id="requestVerificationBtn">Request Verification</button>
+        <div id="verifyError" class="form-error" role="alert" hidden style="margin-top:10px;"></div>
+        <div id="verifySuccess" class="form-success" role="status" hidden style="margin-top:10px;"></div>
+      `;
+
+      document.getElementById('requestVerificationBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('requestVerificationBtn');
+        const errorBox = document.getElementById('verifyError');
+        const successBox = document.getElementById('verifySuccess');
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+
+        const supportingInfo = document.getElementById('supportingInfo').value.trim() || null;
+        const { error } = await supabase.from('verification_requests').insert({
+          profile_id: profile.id,
+          supporting_info: supportingInfo,
+          status: 'pending',
+        });
+
+        if (error) {
+          errorBox.textContent = 'Could not submit your request. Please try again.';
+          errorBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Request Verification';
+          return;
+        }
+
+        successBox.textContent = 'Verification request submitted — an admin will review it soon.';
+        successBox.hidden = false;
+        btn.remove();
+      });
+    }
+
+    document.getElementById('resetPwBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('resetPwBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      await requestPasswordReset(profile.email);
+      btn.textContent = 'Reset email sent';
+    });
+
+    renderVerification();
+  </script>
+</body>
+</html>

@@ -3,180 +3,184 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title id="pageTitle">Member Profile</title>
-  <meta name="description" id="pageDescription" content="Member profile" />
-  <link rel="stylesheet" href="/assets/css/main.css" />
-  <link rel="stylesheet" href="/assets/css/forms.css" />
-  <link rel="stylesheet" href="/assets/css/profile.css" />
-  <script src="/assets/js/env-config.js" defer></script>
+  <title>Edit My Profile</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <nav class="navbar" aria-label="Main navigation">
-      <a class="brand" href="/index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
-      <ul class="nav-links">
-        <li><a href="/index.html">Home</a></li>
-        <li><a href="/pages/public/members.html">Members</a></li>
-        <li><a href="/pages/public/projects.html">Projects</a></li>
-        <li><a href="/pages/public/login.html" class="btn-ghost">Login</a></li>
-      </ul>
-    </nav>
-  </header>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html" class="active">My Profile</a>
+        <a href="member-skills.html">My Skills</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-settings.html">Settings</a>
+      </nav>
+    </aside>
 
-  <main id="profileRoot" class="profile-page">
-    <p class="placeholder-text" id="loadingMsg">Loading profile…</p>
-  </main>
+    <main class="dashboard-main" style="max-width:640px;">
+      <h1>Edit My Profile</h1>
+
+      <form id="profileForm" class="auth-card" style="max-width:none;padding:0;background:none;border:none;">
+        <label for="fullName">Full name</label>
+        <input id="fullName" required />
+
+        <label for="headline">Professional headline</label>
+        <input id="headline" placeholder="e.g. Frontend Developer & UI Designer" />
+
+        <label for="bio">Bio</label>
+        <textarea id="bio" rows="4"></textarea>
+
+        <label for="professionalStatus">Professional status</label>
+        <select id="professionalStatus">
+          <option value="">Select…</option>
+          <option value="student">Student</option>
+          <option value="freelancer">Freelancer</option>
+          <option value="entrepreneur">Entrepreneur</option>
+          <option value="employed">Employed</option>
+          <option value="job_seeker">Job seeker</option>
+          <option value="developer">Developer</option>
+          <option value="designer">Designer</option>
+          <option value="teacher">Teacher</option>
+          <option value="researcher">Researcher</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="experienceLevel">Experience level</label>
+        <select id="experienceLevel">
+          <option value="">Select…</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+          <option value="expert">Expert</option>
+        </select>
+
+        <label for="yearsExperience">Years of experience</label>
+        <input id="yearsExperience" type="number" min="0" max="80" />
+
+        <label for="availability">Availability</label>
+        <select id="availability">
+          <option value="not_available">Not available</option>
+          <option value="available_freelance">Available for freelance work</option>
+          <option value="open_to_opportunities">Open to opportunities</option>
+        </select>
+
+        <label for="town">Town</label>
+        <input id="town" />
+
+        <label for="state">State</label>
+        <input id="state" />
+
+        <label for="country">Country</label>
+        <input id="country" />
+
+        <label for="education">Education</label>
+        <input id="education" />
+
+        <label for="certifications">Certifications</label>
+        <input id="certifications" />
+
+        <label for="portfolioUrl">Portfolio URL</label>
+        <input id="portfolioUrl" type="url" />
+
+        <label for="githubUrl">GitHub URL</label>
+        <input id="githubUrl" type="url" />
+
+        <label for="linkedinUrl">LinkedIn URL</label>
+        <input id="linkedinUrl" type="url" />
+
+        <h3 style="margin-top:24px;">Privacy</h3>
+        <label for="phoneVisibility">Phone number visibility</label>
+        <select id="phoneVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <label for="emailVisibility">Email visibility</label>
+        <select id="emailVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <label for="locationVisibility">Location visibility</label>
+        <select id="locationVisibility">
+          <option value="private">Private</option>
+          <option value="members_only">Members only</option>
+          <option value="public">Public</option>
+        </select>
+
+        <div id="formError" class="form-error" role="alert" hidden></div>
+        <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+        <button type="submit" class="btn-primary btn-large" id="saveBtn">Save Changes</button>
+      </form>
+    </main>
+  </div>
 
   <script type="module">
-    import { supabase } from '/assets/js/supabase-client.js';
-    import { getCurrentProfile } from '/assets/js/auth.js';
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
 
-    function usernameFromPath() {
-      // Supports both /members/:username (via Netlify/Vercel rewrite)
-      // and /pages/public/member-profile.html?u=username directly.
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('u')) return params.get('u');
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      return parts[parts.length - 1] !== 'member-profile.html' ? parts[parts.length - 1] : null;
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    const fields = {
+      fullName: 'full_name', headline: 'professional_headline', bio: 'bio',
+      professionalStatus: 'professional_status', experienceLevel: 'experience_level',
+      yearsExperience: 'years_of_experience', availability: 'availability_status',
+      town: 'town', state: 'state', country: 'country', education: 'education',
+      certifications: 'certifications', portfolioUrl: 'portfolio_url',
+      githubUrl: 'github_url', linkedinUrl: 'linkedin_url',
+      phoneVisibility: 'phone_visibility', emailVisibility: 'email_visibility',
+      locationVisibility: 'location_visibility',
+    };
+
+    for (const [elId, col] of Object.entries(fields)) {
+      const el = document.getElementById(elId);
+      if (profile[col] !== null && profile[col] !== undefined) el.value = profile[col];
     }
 
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str ?? '';
-      return div.innerHTML;
-    }
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const saveBtn = document.getElementById('saveBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
 
-    function visible(value, visibility, isOwner, isLoggedIn) {
-      if (!value) return null;
-      if (isOwner) return value;
-      if (visibility === 'public') return value;
-      if (visibility === 'members_only' && isLoggedIn) return value;
-      return null;
-    }
+      const updates = {};
+      for (const [elId, col] of Object.entries(fields)) {
+        const el = document.getElementById(elId);
+        let val = el.value;
+        if (elId === 'yearsExperience') val = val ? parseInt(val, 10) : null;
+        if (val === '') val = null;
+        updates[col] = val;
+      }
 
-    async function render() {
-      const username = usernameFromPath();
-      const root = document.getElementById('profileRoot');
+      // Note: role, is_verified, verification_status are intentionally
+      // never touched here — RLS would reject the update anyway, but
+      // we don't even attempt to send them (Section 29).
+      const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
 
-      if (!username) {
-        root.innerHTML = '<p class="placeholder-text">No member specified.</p>';
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Changes';
+
+      if (error) {
+        errorBox.textContent = 'Could not save your profile. Please try again.';
+        errorBox.hidden = false;
         return;
       }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('username', username)
-        .maybeSingle();
-
-      if (error || !profile) {
-        root.innerHTML = '<p class="placeholder-text">This profile could not be found.</p>';
-        return;
-      }
-
-      if (profile.profile_visibility === 'private') {
-        const viewer = await getCurrentProfile();
-        if (!viewer || viewer.id !== profile.id) {
-          root.innerHTML = '<p class="placeholder-text">This profile is private.</p>';
-          return;
-        }
-      }
-
-      const viewer = await getCurrentProfile();
-      const isOwner = !!viewer && viewer.id === profile.id;
-      const isLoggedIn = !!viewer;
-
-      document.getElementById('pageTitle').textContent = `${profile.full_name} — MY TOWN DIGITAL & TECH COMMUNITY`;
-      document.getElementById('pageDescription').setAttribute('content', profile.professional_headline || '');
-
-      const [{ data: skills }, { data: projects }, { data: services }, { data: achievements }] = await Promise.all([
-        supabase.from('member_skills').select('skills(name)').eq('profile_id', profile.id),
-        supabase.from('projects').select('title, slug, status').eq('owner_id', profile.id).order('created_at', { ascending: false }),
-        supabase.from('services').select('title, price_rate').eq('profile_id', profile.id).eq('is_active', true),
-        supabase.from('achievements').select('title, organization, achieved_on, verification_status').eq('profile_id', profile.id),
-      ]);
-
-      const phone = visible(profile.phone_number, profile.phone_visibility, isOwner, isLoggedIn);
-      const email = visible(profile.email, profile.email_visibility, isOwner, isLoggedIn);
-      const location = visible([profile.town, profile.state, profile.country].filter(Boolean).join(', '), profile.location_visibility, isOwner, isLoggedIn);
-      const socials = visible(true, profile.social_links_visibility, isOwner, isLoggedIn);
-      const portfolio = visible(profile.portfolio_url, profile.portfolio_visibility, isOwner, isLoggedIn);
-
-      root.innerHTML = `
-        <div class="profile-header">
-          <img src="${profile.profile_photo_url || '/images/default-avatar.png'}" alt="" class="profile-avatar" />
-          <div>
-            <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? '<span class="verified-badge" title="Verified member">✅ Verified</span>' : ''}</h1>
-            <p class="profile-username">@${escapeHtml(profile.username)}</p>
-            <p class="profile-headline">${escapeHtml(profile.professional_headline || '')}</p>
-            ${location ? `<p class="profile-location">📍 ${escapeHtml(location)}</p>` : ''}
-            ${profile.availability_status && profile.availability_status !== 'not_available'
-              ? `<span class="availability-badge">${profile.availability_status === 'available_freelance' ? 'Available for freelance work' : 'Open to opportunities'}</span>`
-              : ''}
-            ${isOwner ? '<a href="/pages/member/profile.html" class="btn-ghost" style="margin-top:10px;display:inline-block;">Edit Profile</a>' : `<button class="btn-primary" id="contactBtn" style="margin-top:10px;">Contact</button> <a href="/pages/public/report.html?type=profile&id=${profile.id}" class="btn-ghost" style="margin-top:10px;display:inline-block;">Report</a>`}
-          </div>
-        </div>
-
-        ${profile.bio ? `<section class="profile-section"><h2>About</h2><p>${escapeHtml(profile.bio)}</p></section>` : ''}
-
-        ${skills && skills.length ? `
-        <section class="profile-section">
-          <h2>Skills</h2>
-          <div class="chip-grid">${skills.map(s => `<span class="chip">${escapeHtml(s.skills.name)}</span>`).join('')}</div>
-        </section>` : ''}
-
-        ${projects && projects.length ? `
-        <section class="profile-section">
-          <h2>Projects</h2>
-          <div class="card-grid">
-            ${projects.map(p => `
-              <a class="project-card" href="/projects/${encodeURIComponent(p.slug)}">
-                <h3>${escapeHtml(p.title)}</h3>
-                <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
-              </a>`).join('')}
-          </div>
-        </section>` : ''}
-
-        ${services && services.length ? `
-        <section class="profile-section">
-          <h2>Services</h2>
-          <ul class="plain-list">
-            ${services.map(s => `<li><strong>${escapeHtml(s.title)}</strong>${s.price_rate ? ` — ${escapeHtml(s.price_rate)}` : ''}</li>`).join('')}
-          </ul>
-        </section>` : ''}
-
-        ${achievements && achievements.length ? `
-        <section class="profile-section">
-          <h2>Achievements</h2>
-          <ul class="plain-list">
-            ${achievements.map(a => `<li><strong>${escapeHtml(a.title)}</strong>${a.organization ? ` — ${escapeHtml(a.organization)}` : ''} ${a.verification_status === 'approved' ? '✅' : ''}</li>`).join('')}
-          </ul>
-        </section>` : ''}
-
-        ${(email || phone || (socials && (profile.github_url || profile.linkedin_url || profile.twitter_url || profile.youtube_url || profile.facebook_url)) || portfolio) ? `
-        <section class="profile-section">
-          <h2>Connect</h2>
-          <ul class="plain-list">
-            ${email ? `<li>Email: ${escapeHtml(email)}</li>` : ''}
-            ${phone ? `<li>Phone: ${escapeHtml(phone)}</li>` : ''}
-            ${portfolio ? `<li><a href="${escapeHtml(portfolio)}" target="_blank" rel="noopener">Portfolio</a></li>` : ''}
-            ${socials && profile.github_url ? `<li><a href="${escapeHtml(profile.github_url)}" target="_blank" rel="noopener">GitHub</a></li>` : ''}
-            ${socials && profile.linkedin_url ? `<li><a href="${escapeHtml(profile.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a></li>` : ''}
-            ${socials && profile.twitter_url ? `<li><a href="${escapeHtml(profile.twitter_url)}" target="_blank" rel="noopener">X / Twitter</a></li>` : ''}
-            ${socials && profile.youtube_url ? `<li><a href="${escapeHtml(profile.youtube_url)}" target="_blank" rel="noopener">YouTube</a></li>` : ''}
-          </ul>
-        </section>` : ''}
-      `;
-
-      const contactBtn = document.getElementById('contactBtn');
-      if (contactBtn) {
-        contactBtn.addEventListener('click', () => {
-          window.location.href = `/pages/public/contact-member.html?u=${encodeURIComponent(profile.username)}`;
-        });
-      }
-    }
-
-    render();
+      successBox.textContent = 'Profile updated.';
+      successBox.hidden = false;
+    });
   </script>
 </body>
 </html>

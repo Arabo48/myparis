@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Members</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="admin-table.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html" class="active">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:1000px;">
+      <h1>Manage Members</h1>
+
+      <div class="filters-row" style="margin:16px 0;">
+        <input type="text" id="qSearch" placeholder="Search name, username, email…" style="flex:1;min-width:200px;" />
+        <select id="fRole">
+          <option value="">All roles</option>
+          <option value="member">Member</option>
+          <option value="mentor">Mentor</option>
+          <option value="organization">Organization</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+        <select id="fVerified">
+          <option value="">Verified: any</option>
+          <option value="true">Verified</option>
+          <option value="false">Unverified</option>
+        </select>
+        <select id="fSuspended">
+          <option value="">Status: any</option>
+          <option value="false">Active</option>
+          <option value="true">Suspended</option>
+        </select>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Name</th><th>Role</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="memberRows"><tr><td colspan="6" class="placeholder-text">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { logAdminAction } from './audit-log.js';
+    import { escapeHtml } from './utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    async function loadMembers() {
+      const q = document.getElementById('qSearch').value.trim();
+      const role = document.getElementById('fRole').value;
+      const verified = document.getElementById('fVerified').value;
+      const suspended = document.getElementById('fSuspended').value;
+
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, username, email, role, is_verified, is_suspended, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (q) query = query.or(`full_name.ilike.%${q}%,username.ilike.%${q}%,email.ilike.%${q}%`);
+      if (role) query = query.eq('role', role);
+      if (verified) query = query.eq('is_verified', verified === 'true');
+      if (suspended) query = query.eq('is_suspended', suspended === 'true');
+
+      const { data, error } = await query;
+      const tbody = document.getElementById('memberRows');
+
+      if (error || !data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="placeholder-text">No members match.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(m => `
+        <tr data-id="${m.id}">
+          <td><a href="public-member-profile.html?u=${encodeURIComponent(m.username)}" target="_blank">${escapeHtml(m.full_name)}</a><br><span class="placeholder-text">${escapeHtml(m.email)}</span></td>
+          <td>
+            <select class="role-select" data-id="${m.id}" ${m.id === admin.id ? 'disabled title="You cannot change your own role"' : ''}>
+              ${['member', 'mentor', 'organization', 'admin', 'super_admin'].map(r => `<option value="${r}" ${r === m.role ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+          </td>
+          <td>${m.is_verified ? '✅' : '—'}</td>
+          <td>${m.is_suspended ? '<span class="status-badge" style="color:#FCA5A5;">Suspended</span>' : '<span class="status-badge">Active</span>'}</td>
+          <td class="placeholder-text">${new Date(m.created_at).toLocaleDateString()}</td>
+          <td class="row-actions">
+            ${!m.is_verified ? `<button class="btn-ghost verify-btn" data-id="${m.id}">Verify</button>` : ''}
+            <button class="btn-ghost suspend-btn" data-id="${m.id}" data-suspended="${m.is_suspended}">${m.is_suspended ? 'Unsuspend' : 'Suspend'}</button>
+            ${m.id !== admin.id ? `<button class="btn-ghost delete-btn" data-id="${m.id}" style="color:#FCA5A5;">Delete</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      wireRowActions();
+    }
+
+    function wireRowActions() {
+      document.querySelectorAll('.role-select').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const newRole = sel.value;
+          if (!confirm(`Change this member's role to "${newRole}"?`)) { loadMembers(); return; }
+          const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', sel.dataset.id);
+          if (!error) {
+            await logAdminAction({ adminId: admin.id, action: 'role_change', targetTable: 'profiles', targetId: sel.dataset.id, metadata: { new_role: newRole } });
+          }
+          loadMembers();
+        });
+      });
+
+      document.querySelectorAll('.verify-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Verify this member? They will get a visible verification badge.')) return;
+          const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', btn.dataset.id);
+          if (!error) await logAdminAction({ adminId: admin.id, action: 'member_verified', targetTable: 'profiles', targetId: btn.dataset.id });
+          loadMembers();
+        });
+      });
+
+      document.querySelectorAll('.suspend-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const currentlySuspended = btn.dataset.suspended === 'true';
+          const label = currentlySuspended ? 'unsuspend' : 'suspend';
+          if (!confirm(`Are you sure you want to ${label} this member?`)) return;
+          const { error } = await supabase.from('profiles').update({ is_suspended: !currentlySuspended }).eq('id', btn.dataset.id);
+          if (!error) await logAdminAction({ adminId: admin.id, action: currentlySuspended ? 'member_unsuspended' : 'member_suspended', targetTable: 'profiles', targetId: btn.dataset.id });
+          loadMembers();
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Permanently delete this member\'s account? This cannot be undone.')) return;
+          if (!confirm('This removes their login, profile, and all associated content. Confirm delete?')) return;
+
+          const { data: { session } } = await supabase.auth.getSession();
+          const { data, error } = await supabase.functions.invoke('delete-user', {
+            body: { targetUserId: btn.dataset.id },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+
+          if (error || data?.error) {
+            alert('Could not delete this member: ' + (data?.error || error.message));
+            return;
+          }
+          loadMembers();
+        });
+      });
+    }
+
+    document.getElementById('qSearch').addEventListener('input', debounce(loadMembers, 350));
+    document.getElementById('fRole').addEventListener('change', loadMembers);
+    document.getElementById('fVerified').addEventListener('change', loadMembers);
+    document.getElementById('fSuspended').addEventListener('change', loadMembers);
+
+    loadMembers();
+  </script>
+</body>
+</html>

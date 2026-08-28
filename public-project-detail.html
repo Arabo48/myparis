@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">Project — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="profile.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="public-projects.html">Projects</a></li>
+        <li><a href="public-login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="profile-page" id="detailRoot">
+    <p class="placeholder-text">Loading…</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    function slugFromPath() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('s')) return params.get('s');
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] !== 'project-detail.html' ? parts[parts.length - 1] : null;
+    }
+
+    async function render() {
+      const slug = slugFromPath();
+      const root = document.getElementById('detailRoot');
+      if (!slug) { root.innerHTML = '<p class="placeholder-text">No project specified.</p>'; return; }
+
+      const { data: project, error } = await supabase
+        .from('projects')
+        .select('*, profiles(username, full_name, profile_photo_url)')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (error || !project) {
+        root.innerHTML = '<p class="placeholder-text">This project could not be found.</p>';
+        return;
+      }
+
+      document.getElementById('pageTitle').textContent = `${project.title} — MY TOWN DIGITAL & TECH COMMUNITY`;
+
+      const { data: teamRows } = await supabase
+        .from('project_members')
+        .select('role_on_project, profiles(username, full_name)')
+        .eq('project_id', project.id);
+
+      root.innerHTML = `
+        <div class="profile-header" style="align-items:center;">
+          <div>
+            <h1>${escapeHtml(project.title)}</h1>
+            <span class="status-badge status-${project.status}">${project.status.replace('_', ' ')}</span>
+            ${project.profiles ? `<p class="profile-username">by <a href="public-member-profile.html?u=${encodeURIComponent(project.profiles.username)}">${escapeHtml(project.profiles.full_name)}</a></p>` : ''}
+          </div>
+        </div>
+
+        ${project.image_url ? `<img src="${project.image_url}" alt="" style="width:100%;border-radius:10px;margin-bottom:24px;" />` : ''}
+
+        ${project.description ? `<section class="profile-section"><h2>About this project</h2><p>${escapeHtml(project.description)}</p></section>` : ''}
+
+        ${project.technologies && project.technologies.length ? `
+        <section class="profile-section">
+          <h2>Technologies</h2>
+          <div class="chip-grid">${project.technologies.map(t => `<span class="chip">${escapeHtml(t)}</span>`).join('')}</div>
+        </section>` : ''}
+
+        ${teamRows && teamRows.length ? `
+        <section class="profile-section">
+          <h2>Team</h2>
+          <ul class="plain-list">
+            ${teamRows.map(t => `<li><a href="public-member-profile.html?u=${encodeURIComponent(t.profiles.username)}">${escapeHtml(t.profiles.full_name)}</a>${t.role_on_project ? ` — ${escapeHtml(t.role_on_project)}` : ''}</li>`).join('')}
+          </ul>
+        </section>` : ''}
+
+        ${(project.project_url || project.github_url) ? `
+        <section class="profile-section">
+          <h2>Links</h2>
+          <ul class="plain-list">
+            ${project.project_url ? `<li><a href="${escapeHtml(project.project_url)}" target="_blank" rel="noopener">Live project</a></li>` : ''}
+            ${project.github_url ? `<li><a href="${escapeHtml(project.github_url)}" target="_blank" rel="noopener">Source code (GitHub)</a></li>` : ''}
+          </ul>
+        </section>` : ''}
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>

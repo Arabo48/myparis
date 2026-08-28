@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Skills &amp; Categories</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html" class="active">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:700px;">
+      <h1>Skills &amp; Categories</h1>
+
+      <section class="profile-section" style="border:none;padding-top:0;margin-top:0;">
+        <h2 style="font-size:1.05rem;">Add Category</h2>
+        <div style="display:flex;gap:10px;">
+          <input id="newCategoryName" placeholder="Category name" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
+          <button class="btn-primary" id="addCategoryBtn">Add</button>
+        </div>
+      </section>
+
+      <div id="categoriesRoot" style="margin-top:20px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('skill_categories')
+        .select('id, name, skills(id, name)')
+        .order('sort_order');
+
+      const root = document.getElementById('categoriesRoot');
+      if (error || !data || data.length === 0) {
+        root.innerHTML = '<p class="placeholder-text">No categories yet.</p>';
+        return;
+      }
+
+      root.innerHTML = data.map(cat => `
+        <div class="category-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="font-size:0.95rem;margin:0;">${escapeHtml(cat.name)}</h3>
+            <button class="btn-ghost delete-category-btn" data-id="${cat.id}" style="color:#FCA5A5;">Delete Category</button>
+          </div>
+          <div class="chip-grid" style="margin-top:10px;">
+            ${(cat.skills || []).map(s => `
+              <span class="chip" style="display:inline-flex;align-items:center;gap:6px;">
+                ${escapeHtml(s.name)}
+                <button type="button" class="remove-skill-btn" data-id="${s.id}" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;">✕</button>
+              </span>
+            `).join('')}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <input class="new-skill-input" data-category="${cat.id}" placeholder="New skill name" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:8px;color:var(--color-text);font-size:0.85rem;" />
+            <button class="btn-ghost add-skill-btn" data-category="${cat.id}">Add Skill</button>
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.delete-category-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Delete this category? Skills in it will become uncategorized.')) return;
+        await supabase.from('skill_categories').delete().eq('id', btn.dataset.id);
+        load();
+      }));
+
+      document.querySelectorAll('.remove-skill-btn').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Remove this skill? Members who added it will lose it from their profile.')) return;
+        await supabase.from('skills').delete().eq('id', btn.dataset.id);
+        load();
+      }));
+
+      document.querySelectorAll('.add-skill-btn').forEach(btn => btn.addEventListener('click', async () => {
+        const input = document.querySelector(`.new-skill-input[data-category="${btn.dataset.category}"]`);
+        const name = input.value.trim();
+        if (!name) return;
+        const { error } = await supabase.from('skills').insert({ name, category_id: btn.dataset.category });
+        if (!error) { input.value = ''; load(); } else { alert('Could not add skill (it may already exist).'); }
+      }));
+    }
+
+    document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+      const input = document.getElementById('newCategoryName');
+      const name = input.value.trim();
+      if (!name) return;
+      const { error } = await supabase.from('skill_categories').insert({ name });
+      if (!error) { input.value = ''; load(); } else { alert('Could not add category (it may already exist).'); }
+    });
+
+    load();
+  </script>
+  <style>
+    .category-block { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+    .chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: var(--color-surface-2); border: 1px solid var(--color-border); font-size: 0.82rem; }
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  </style>
+</body>
+</html>

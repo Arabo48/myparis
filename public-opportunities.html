@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opportunities — MY TOWN DIGITAL & TECH COMMUNITY</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="search.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="public-opportunities.html">Opportunities</a></li>
+        <li><a href="public-events.html">Events</a></li>
+        <li><a href="public-login.html" class="btn-ghost">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="search-page">
+    <h1>Opportunities</h1>
+
+    <div class="search-bar">
+      <input type="text" id="qText" placeholder="Search opportunities…" />
+    </div>
+
+    <div class="filters-row">
+      <select id="fCategory">
+        <option value="">All categories</option>
+        <option value="job">Job</option>
+        <option value="internship">Internship</option>
+        <option value="scholarship">Scholarship</option>
+        <option value="fellowship">Fellowship</option>
+        <option value="training">Training</option>
+        <option value="competition">Competition</option>
+        <option value="grant">Grant</option>
+        <option value="freelance">Freelance</option>
+        <option value="volunteer">Volunteer</option>
+        <option value="hackathon">Hackathon</option>
+      </select>
+      <select id="fMode">
+        <option value="">Any mode</option>
+        <option value="remote">Remote</option>
+        <option value="onsite">On-site</option>
+        <option value="hybrid">Hybrid</option>
+      </select>
+      <select id="fSort">
+        <option value="deadline_asc">Deadline soonest</option>
+        <option value="created_desc">Newest first</option>
+      </select>
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div id="resultsGrid" style="display:flex;flex-direction:column;gap:12px;"><p class="placeholder-text">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    async function search() {
+      const q = document.getElementById('qText').value.trim();
+      const category = document.getElementById('fCategory').value;
+      const mode = document.getElementById('fMode').value;
+      const sort = document.getElementById('fSort').value;
+
+      let query = supabase
+        .from('opportunities')
+        .select('title, slug, description, organization_name, location, mode, deadline, category', { count: 'exact' })
+        .eq('is_approved', true);
+
+      if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+      if (category) query = query.eq('category', category);
+      if (mode) query = query.eq('mode', mode);
+
+      query = sort === 'created_desc'
+        ? query.order('created_at', { ascending: false })
+        : query.order('deadline', { ascending: true, nullsFirst: false });
+
+      const { data, count, error } = await query.limit(48);
+      const grid = document.getElementById('resultsGrid');
+      document.getElementById('resultCount').textContent = `${count || 0} opportunit${count === 1 ? 'y' : 'ies'}`;
+
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">No opportunities match yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(o => `
+        <a class="list-card" href="public-opportunity-detail.html?s=${encodeURIComponent(o.slug)}">
+          <div>
+            <span class="status-badge">${escapeHtml(o.category)}</span>
+            <h3 style="margin:8px 0 4px;">${escapeHtml(o.title)}</h3>
+            <p class="placeholder-text">${escapeHtml(o.organization_name || '')} ${o.location ? '· ' + escapeHtml(o.location) : ''} ${o.mode ? '· ' + o.mode : ''}</p>
+          </div>
+          ${o.deadline ? `<div class="deadline-tag">Deadline: ${o.deadline}</div>` : ''}
+        </a>
+      `).join('');
+    }
+
+    document.getElementById('qText').addEventListener('input', debounce(search, 350));
+    document.getElementById('fCategory').addEventListener('change', search);
+    document.getElementById('fMode').addEventListener('change', search);
+    document.getElementById('fSort').addEventListener('change', search);
+    search();
+  </script>
+  <style>
+    .list-card {
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius); padding: 16px 18px;
+      transition: border-color 0.15s ease;
+    }
+    .list-card:hover { border-color: var(--color-primary); }
+    .deadline-tag { font-size: 0.78rem; color: var(--color-text-muted); white-space: nowrap; }
+  </style>
+</body>
+</html>

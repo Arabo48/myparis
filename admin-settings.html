@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform Settings</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html">Audit Log</a>
+        <a href="admin-settings.html" class="active">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:600px;">
+      <h1>Platform Settings</h1>
+
+      <form id="settingsForm" class="auth-card" style="max-width:none;padding:0;background:none;border:none;">
+        <label for="platformName">Platform name</label>
+        <input id="platformName" required />
+
+        <label for="description">Description</label>
+        <textarea id="description" rows="2"></textarea>
+
+        <label for="logoUrl">Logo URL</label>
+        <input id="logoUrl" type="url" />
+
+        <label for="faviconUrl">Favicon URL</label>
+        <input id="faviconUrl" type="url" />
+
+        <label for="contactEmail">Contact email</label>
+        <input id="contactEmail" type="email" />
+
+        <label for="contactPhone">Contact phone</label>
+        <input id="contactPhone" />
+
+        <label for="communityLocation">Community location</label>
+        <input id="communityLocation" />
+
+        <label for="primaryColor">Primary color</label>
+        <input id="primaryColor" type="color" style="height:44px;padding:4px;" />
+
+        <label for="accentColor">Accent color</label>
+        <input id="accentColor" type="color" style="height:44px;padding:4px;" />
+
+        <label for="footerText">Footer text</label>
+        <input id="footerText" />
+
+        <div id="formError" class="form-error" role="alert" hidden></div>
+        <div id="formSuccess" class="form-success" role="status" hidden></div>
+
+        <button type="submit" class="btn-primary btn-large" id="saveBtn">Save Settings</button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { logAdminAction } from './audit-log.js';
+
+    // Matches the RLS policy: any admin or super_admin can manage
+    // platform settings (Section 29: "Only admins can manage platform settings").
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    let settingsId = null;
+
+    async function load() {
+      const { data } = await supabase.from('platform_settings').select('*').limit(1).maybeSingle();
+      if (!data) return;
+      settingsId = data.id;
+
+      document.getElementById('platformName').value = data.platform_name || '';
+      document.getElementById('description').value = data.description || '';
+      document.getElementById('logoUrl').value = data.logo_url || '';
+      document.getElementById('faviconUrl').value = data.favicon_url || '';
+      document.getElementById('contactEmail').value = data.contact_email || '';
+      document.getElementById('contactPhone').value = data.contact_phone || '';
+      document.getElementById('communityLocation').value = data.community_location || '';
+      document.getElementById('primaryColor').value = data.primary_color || '#0F172A';
+      document.getElementById('accentColor').value = data.accent_color || '#2563EB';
+      document.getElementById('footerText').value = data.footer_text || '';
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('formError');
+      const successBox = document.getElementById('formSuccess');
+      const btn = document.getElementById('saveBtn');
+      errorBox.hidden = true;
+      successBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const payload = {
+        platform_name: document.getElementById('platformName').value.trim(),
+        description: document.getElementById('description').value.trim() || null,
+        logo_url: document.getElementById('logoUrl').value.trim() || null,
+        favicon_url: document.getElementById('faviconUrl').value.trim() || null,
+        contact_email: document.getElementById('contactEmail').value.trim() || null,
+        contact_phone: document.getElementById('contactPhone').value.trim() || null,
+        community_location: document.getElementById('communityLocation').value.trim() || null,
+        primary_color: document.getElementById('primaryColor').value,
+        accent_color: document.getElementById('accentColor').value,
+        footer_text: document.getElementById('footerText').value.trim() || null,
+        updated_by: admin.id,
+      };
+
+      const { error } = await supabase.from('platform_settings').update(payload).eq('id', settingsId);
+      btn.disabled = false;
+      btn.textContent = 'Save Settings';
+
+      if (error) {
+        errorBox.textContent = 'Could not save settings. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      await logAdminAction({ adminId: admin.id, action: 'settings_updated', targetTable: 'platform_settings', targetId: settingsId });
+      successBox.textContent = 'Settings saved.';
+      successBox.hidden = false;
+    });
+
+    load();
+  </script>
+</body>
+</html>

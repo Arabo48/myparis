@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html" class="active">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-skills.html">My Skills</a>
+        <a href="member-projects.html">My Projects</a>
+        <a href="member-services.html">My Services</a>
+        <a href="member-achievements.html">My Achievements</a>
+        <a href="member-opportunities.html">Opportunities</a>
+        <a href="member-events.html">Events</a>
+        <a href="member-mentorship.html">Mentorship</a>
+        <a href="member-inquiries.html">Inquiries</a>
+        <a href="member-notifications.html">Notifications</a>
+        <a href="member-settings.html">Settings</a>
+        <button id="logoutBtn" class="logout-btn">Log out</button>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <h1>Welcome back, <span id="userName">…</span></h1>
+
+      <section class="stat-cards" id="statCards">
+        <div class="stat-card"><span id="profileCompletion">–</span><label>Profile completion</label></div>
+        <div class="stat-card"><span id="projectCount">–</span><label>Projects</label></div>
+        <div class="stat-card"><span id="skillCount">–</span><label>Skills</label></div>
+        <div class="stat-card"><span id="savedOppCount">–</span><label>Saved opportunities</label></div>
+        <div class="stat-card"><span id="eventCount">–</span><label>Event registrations</label></div>
+        <div class="stat-card"><span id="mentorshipCount">–</span><label>Mentorship requests</label></div>
+      </section>
+
+      <section id="announcementBanner"></section>
+
+      <section id="verificationNotice"></section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole, logoutUser } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { renderUnreadBadge } from './notifications-badge.js';
+    import { escapeHtml } from './utils.js';
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (profile) {
+      renderUnreadBadge(profile.id);
+      document.getElementById('userName').textContent = profile.full_name;
+
+      const { data: latestAnnouncement } = await supabase
+        .from('announcements')
+        .select('title, body')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestAnnouncement) {
+        document.getElementById('announcementBanner').innerHTML =
+          `<p class="notice">📣 <strong>${escapeHtml(latestAnnouncement.title)}</strong> — ${escapeHtml(latestAnnouncement.body)} <a href="public-announcements.html">See all news</a></p>`;
+      }
+
+      // Real profile-completion calculation, not a placeholder number.
+      const fields = [
+        profile.professional_headline, profile.bio, profile.primary_skill_id,
+        profile.experience_level, profile.education, profile.profile_photo_url,
+        profile.professional_status,
+      ];
+      const filled = fields.filter(Boolean).length;
+      document.getElementById('profileCompletion').textContent =
+        Math.round((filled / fields.length) * 100) + '%';
+
+      const [{ count: projects }, { count: skills }, { count: savedOpps }, { count: events }, { count: mentorships }] =
+        await Promise.all([
+          supabase.from('projects').select('id', { count: 'exact', head: true }).eq('owner_id', profile.id),
+          supabase.from('member_skills').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
+          supabase.from('saved_opportunities').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
+          supabase.from('event_registrations').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
+          supabase.from('mentorship_requests').select('id', { count: 'exact', head: true }).eq('requester_id', profile.id),
+        ]);
+
+      document.getElementById('projectCount').textContent = projects ?? 0;
+      document.getElementById('skillCount').textContent = skills ?? 0;
+      document.getElementById('savedOppCount').textContent = savedOpps ?? 0;
+      document.getElementById('eventCount').textContent = events ?? 0;
+      document.getElementById('mentorshipCount').textContent = mentorships ?? 0;
+
+      if (profile.verification_status === 'unverified') {
+        document.getElementById('verificationNotice').innerHTML =
+          `<p class="notice">Your profile isn't verified yet. <a href="member-settings.html">Request verification</a> to earn a badge.</p>`;
+      }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logoutUser();
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

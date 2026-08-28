@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audit Log</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="admin-table.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand">ADMIN</div>
+      <nav>
+        <a href="admin-dashboard.html">Overview</a>
+        <a href="admin-members.html">Members</a>
+        <a href="admin-skills.html">Skills &amp; Categories</a>
+        <a href="admin-opportunities.html">Opportunities</a>
+        <a href="admin-events.html">Events</a>
+        <a href="admin-mentors.html">Mentors</a>
+        <a href="admin-neighborhoods.html">Neighborhoods</a>
+        <a href="admin-announcements.html">Announcements</a>
+        <a href="admin-reports.html">Reports</a>
+        <a href="admin-verification.html">Verification Requests</a>
+        <a href="admin-audit-log.html" class="active">Audit Log</a>
+        <a href="admin-settings.html">Platform Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main" style="max-width:1000px;">
+      <h1>Audit Log</h1>
+      <p class="placeholder-text">Every sensitive admin action recorded automatically — read-only.</p>
+      <div class="admin-table-wrap" style="margin-top:16px;">
+        <table class="admin-table">
+          <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Metadata</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5" class="placeholder-text">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { escapeHtml } from './utils.js';
+
+    const admin = await requireRole(['admin', 'super_admin']);
+    if (!admin) throw new Error('Not authorized');
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('created_at, action, target_table, target_id, metadata, profiles(full_name)')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      const rows = document.getElementById('rows');
+      if (error || !data || data.length === 0) {
+        rows.innerHTML = '<tr><td colspan="5" class="placeholder-text">No admin actions logged yet.</td></tr>';
+        return;
+      }
+
+      rows.innerHTML = data.map(l => `
+        <tr>
+          <td class="placeholder-text">${new Date(l.created_at).toLocaleString()}</td>
+          <td>${escapeHtml(l.profiles?.full_name || 'Unknown')}</td>
+          <td>${escapeHtml(l.action)}</td>
+          <td class="placeholder-text">${escapeHtml(l.target_table || '')} ${l.target_id ? '#' + l.target_id.slice(0, 8) : ''}</td>
+          <td class="placeholder-text" style="max-width:220px;overflow-wrap:break-word;">${escapeHtml(JSON.stringify(l.metadata || {}))}</td>
+        </tr>
+      `).join('');
+    }
+
+    load();
+  </script>
+</body>
+</html>
