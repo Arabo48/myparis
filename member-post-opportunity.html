@@ -13,7 +13,7 @@
   <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'member-dashboard.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
-      <div class="brand">MY TOWN TECH</div>
+      <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
       <nav>
         <a href="member-dashboard.html">Overview</a>
         <a href="member-post-opportunity.html" class="active">Post an Opportunity</a>
@@ -84,7 +84,8 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
-    import { uniqueSlug } from './utils.js';
+    applySidebarBrand(supabase);
+    import {uniqueSlug, applySidebarBrand} from './utils.js';
 
     // RLS backs this up server-side — a member account cannot insert
     // into `opportunities` even if they reach this page directly.

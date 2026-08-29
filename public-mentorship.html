@@ -34,12 +34,12 @@
   <script type="module">
     import { supabase } from './supabase-client.js';
     import { getCurrentProfile } from './auth.js';
-    import { escapeHtml } from './utils.js';
+    import { escapeHtml, VERIFIED_BADGE_SVG } from './utils.js';
 
     async function load() {
       const { data, error } = await supabase
         .from('mentors')
-        .select('id, areas_of_mentorship, availability, profiles(username, full_name, professional_headline, profile_photo_url)')
+        .select('id, areas_of_mentorship, availability, profiles(username, full_name, professional_headline, profile_photo_url, is_verified)')
         .eq('is_approved', true);
 
       const grid = document.getElementById('mentorsGrid');
@@ -54,7 +54,7 @@
         <div class="member-card">
           <a href="public-member-profile.html?u=${encodeURIComponent(m.profiles.username)}" style="display:block;">
             <img loading="lazy" src="${m.profiles.profile_photo_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E'}" alt="" class="avatar" />
-            <h3>${escapeHtml(m.profiles.full_name)}</h3>
+            <h3>${escapeHtml(m.profiles.full_name)} ${m.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
             <p>${escapeHtml(m.profiles.professional_headline || '')}</p>
             ${m.areas_of_mentorship && m.areas_of_mentorship.length ? `<p class="member-location">${m.areas_of_mentorship.map(escapeHtml).join(', ')}</p>` : ''}
           </a>

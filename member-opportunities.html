@@ -12,7 +12,7 @@
   <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'member-dashboard.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
-      <div class="brand">MY TOWN TECH</div>
+      <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
       <nav>
         <a href="member-dashboard.html">Overview</a>
         <a href="member-profile.html">My Profile</a>
@@ -36,7 +36,8 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
-    import { escapeHtml } from './utils.js';
+    applySidebarBrand(supabase);
+    import {escapeHtml, applySidebarBrand} from './utils.js';
 
     const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
     if (profile && ["admin", "super_admin"].includes(profile.role)) {

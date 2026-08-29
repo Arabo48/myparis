@@ -13,7 +13,7 @@
   <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'member-dashboard.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
-      <div class="brand">MY TOWN TECH</div>
+      <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
       <nav>
         <a href="member-dashboard.html">Overview</a>
         <a href="member-profile.html">My Profile</a>
@@ -50,7 +50,8 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
-    import { escapeHtml } from './utils.js';
+    applySidebarBrand(supabase);
+    import {escapeHtml, applySidebarBrand, VERIFIED_BADGE_SVG} from './utils.js';
 
     const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
     if (profile && ["admin", "super_admin"].includes(profile.role)) {
@@ -113,7 +114,7 @@
     async function loadSentRequests() {
       const { data, error } = await supabase
         .from('mentorship_requests')
-        .select('id, status, message, mentors(profiles(username, full_name))')
+        .select('id, status, message, mentors(profiles(username, full_name, is_verified))')
         .eq('requester_id', profile.id)
         .order('created_at', { ascending: false });
 
@@ -126,7 +127,7 @@
       box.innerHTML = data.map(r => `
         <div class="list-row">
           <div>
-            <strong>${escapeHtml(r.mentors.profiles.full_name)}</strong>
+            <strong>${escapeHtml(r.mentors.profiles.full_name)}</strong> ${r.mentors.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}
             <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(r.message || '')}</p>
           </div>
           <span class="status-badge">${escapeHtml(r.status)}</span>
@@ -137,7 +138,7 @@
     async function loadIncomingRequests(mentorId) {
       const { data, error } = await supabase
         .from('mentorship_requests')
-        .select('id, status, message, profiles!mentorship_requests_requester_id_fkey(full_name, username)')
+        .select('id, status, message, profiles!mentorship_requests_requester_id_fkey(full_name, username, is_verified)')
         .eq('mentor_id', mentorId)
         .order('created_at', { ascending: false });
 
@@ -150,7 +151,7 @@
       box.innerHTML = data.map(r => `
         <div class="list-row">
           <div>
-            <a href="public-member-profile.html?u=${encodeURIComponent(r.profiles.username)}"><strong>${escapeHtml(r.profiles.full_name)}</strong></a>
+            <a href="public-member-profile.html?u=${encodeURIComponent(r.profiles.username)}"><strong>${escapeHtml(r.profiles.full_name)}</strong></a> ${r.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}
             <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(r.message || '')}</p>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">

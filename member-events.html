@@ -13,7 +13,7 @@
   <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'member-dashboard.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
-      <div class="brand">MY TOWN TECH</div>
+      <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
       <nav>
         <a href="member-dashboard.html">Overview</a>
         <a href="member-profile.html">My Profile</a>
@@ -84,7 +84,8 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
-    import { uniqueSlug, escapeHtml } from './utils.js';
+    applySidebarBrand(supabase);
+    import {uniqueSlug, escapeHtml, applySidebarBrand} from './utils.js';
 
     const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
     if (profile && ["admin", "super_admin"].includes(profile.role)) {
@@ -197,6 +198,7 @@
   </script>
   <style>
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .modal-overlay[hidden] { display: none; }
     .modal-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
     .modal-card label { font-size: 0.85rem; color: var(--color-text-muted); margin: 12px 0 6px; }
     .modal-card input, .modal-card select, .modal-card textarea { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; color: var(--color-text); font-family: inherit; }

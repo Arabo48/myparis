@@ -38,7 +38,7 @@
 
   <script type="module">
     import { supabase } from './supabase-client.js';
-    import { escapeHtml } from './utils.js';
+    import { escapeHtml, VERIFIED_BADGE_SVG } from './utils.js';
 
     function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
@@ -46,7 +46,7 @@
       const q = document.getElementById('qText').value.trim();
       let query = supabase
         .from('services')
-        .select('title, description, price_rate, profiles(username, full_name)', { count: 'exact' })
+        .select('title, description, price_rate, profiles(username, full_name, is_verified)', { count: 'exact' })
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -66,7 +66,7 @@
           <h3>${escapeHtml(s.title)}</h3>
           <p>${escapeHtml((s.description || '').slice(0, 100))}${(s.description || '').length > 100 ? '…' : ''}</p>
           ${s.price_rate ? `<p class="member-location">${escapeHtml(s.price_rate)}</p>` : ''}
-          ${s.profiles ? `<p class="member-location">by ${escapeHtml(s.profiles.full_name)}</p>` : ''}
+          ${s.profiles ? `<p class="member-location">by ${escapeHtml(s.profiles.full_name)} ${s.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}</p>` : ''}
         </a>
       `).join('');
     }

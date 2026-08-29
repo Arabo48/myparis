@@ -35,7 +35,26 @@ export function escapeHtml(str) {
 }
 
 /**
- * Uploads a file to a Supabase Storage bucket and returns its public URL.
+ * Fetches the live platform name/logo from platform_settings and applies
+ * it to the sidebar brand element (id="sidebarBrand") if present on the
+ * page. Call this on every member/admin page so a rename in Platform
+ * Settings shows up everywhere immediately, not just the homepage.
+ */
+export async function applySidebarBrand(supabase) {
+  const el = document.getElementById('sidebarBrand');
+  if (!el) return;
+
+  const { data } = await supabase
+    .from('platform_settings')
+    .select('platform_name')
+    .limit(1)
+    .maybeSingle();
+
+  if (data?.platform_name) {
+    el.textContent = data.platform_name;
+    document.title = document.title.replace(/MY TOWN DIGITAL & TECH COMMUNITY|ADMIN/i, data.platform_name);
+  }
+}
  * `pathPrefix` scopes the file under a folder (e.g. the uploader's user id)
  * so per-user storage RLS policies can enforce ownership.
  * Returns { url } on success or { error } on failure — never throws.

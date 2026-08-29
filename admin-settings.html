@@ -13,7 +13,7 @@
   <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'admin-dashboard.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
-      <div class="brand">ADMIN</div>
+      <div class="brand" id="sidebarBrand">ADMIN</div>
       <nav>
         <a href="admin-dashboard.html">Overview</a>
         <a href="admin-members.html">Members</a>
@@ -101,8 +101,9 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
+    applySidebarBrand(supabase);
     import { logAdminAction } from './audit-log.js';
-    import { escapeHtml, uploadFile } from './utils.js';
+    import {escapeHtml, uploadFile, applySidebarBrand} from './utils.js';
 
     // Matches the RLS policy: any admin or super_admin can manage
     // platform settings (Section 29: "Only admins can manage platform settings").
