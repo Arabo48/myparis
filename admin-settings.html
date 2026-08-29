@@ -43,6 +43,10 @@
 
         <label for="logoUrl">Logo URL</label>
         <input id="logoUrl" type="url" placeholder="Paste a direct link to your logo image" />
+        <div style="margin:6px 0;color:var(--color-text-muted);font-size:0.8rem;">— or —</div>
+        <label for="logoUpload">Upload a logo</label>
+        <input id="logoUpload" type="file" accept="image/*" />
+        <div id="logoUploadError" class="form-error" role="alert" hidden style="margin-top:6px;"></div>
         <div id="logoPreviewWrap" style="margin-top:8px;"></div>
 
         <label for="faviconUrl">Favicon URL</label>
@@ -81,6 +85,10 @@
           <input id="newGalleryCaption" placeholder="Caption (optional)" style="flex:1;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:8px;padding:10px;color:var(--color-text);" />
           <button class="btn-primary" id="addGalleryBtn" type="button">Add</button>
         </div>
+        <div style="margin-bottom:16px;">
+          <label for="galleryUpload" style="font-size:0.85rem;color:var(--color-text-muted);">— or upload a photo directly —</label>
+          <input id="galleryUpload" type="file" accept="image/*" style="display:block;margin-top:6px;" />
+        </div>
         <div id="galleryError" class="form-error" role="alert" hidden style="margin-bottom:14px;"></div>
 
         <div id="galleryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
@@ -94,7 +102,7 @@
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
     import { logAdminAction } from './audit-log.js';
-    import { escapeHtml } from './utils.js';
+    import { escapeHtml, uploadFile } from './utils.js';
 
     // Matches the RLS policy: any admin or super_admin can manage
     // platform settings (Section 29: "Only admins can manage platform settings").
@@ -129,6 +137,31 @@
         : '';
     }
     document.getElementById('logoUrl').addEventListener('input', renderLogoPreview);
+
+    document.getElementById('logoUpload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const errorBox = document.getElementById('logoUploadError');
+      errorBox.hidden = true;
+      const label = e.target.previousElementSibling;
+      const originalLabel = label.textContent;
+      label.textContent = 'Uploading…';
+
+      const { url, error } = await uploadFile(supabase, 'platform-assets', file, 'logo');
+
+      label.textContent = originalLabel;
+      e.target.value = '';
+
+      if (error) {
+        errorBox.textContent = error;
+        errorBox.hidden = false;
+        return;
+      }
+
+      document.getElementById('logoUrl').value = url;
+      renderLogoPreview();
+    });
 
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -222,6 +255,44 @@
 
       urlInput.value = '';
       captionInput.value = '';
+      loadGallery();
+    });
+
+    document.getElementById('galleryUpload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const errorBox = document.getElementById('galleryError');
+      errorBox.hidden = true;
+      const label = e.target.previousElementSibling;
+      const originalLabel = label.textContent;
+      label.textContent = 'Uploading…';
+
+      const { url, error: uploadError } = await uploadFile(supabase, 'gallery', file, 'photos');
+
+      label.textContent = originalLabel;
+      e.target.value = '';
+
+      if (uploadError) {
+        errorBox.textContent = uploadError;
+        errorBox.hidden = false;
+        return;
+      }
+
+      const caption = document.getElementById('newGalleryCaption').value.trim() || null;
+      const { error: insertError } = await supabase.from('gallery_images').insert({
+        image_url: url,
+        caption,
+        created_by: admin.id,
+      });
+
+      if (insertError) {
+        errorBox.textContent = 'Photo uploaded but could not be saved. Please try again.';
+        errorBox.hidden = false;
+        return;
+      }
+
+      document.getElementById('newGalleryCaption').value = '';
       loadGallery();
     });
 

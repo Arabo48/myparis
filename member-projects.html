@@ -67,6 +67,10 @@
 
       <label for="pImageUrl">Image URL</label>
       <input id="pImageUrl" type="url" placeholder="Link to a hosted screenshot" />
+      <div style="margin:6px 0;color:var(--color-text-muted);font-size:0.8rem;">— or —</div>
+      <label for="pImageUpload">Upload an image</label>
+      <input id="pImageUpload" type="file" accept="image/*" />
+      <div id="pImageUploadError" class="form-error" role="alert" hidden style="margin-top:6px;"></div>
 
       <label for="pCompletionDate">Completion date</label>
       <input id="pCompletionDate" type="date" />
@@ -83,7 +87,7 @@
   <script type="module">
     import { requireRole } from './auth.js';
     import { supabase } from './supabase-client.js';
-    import { uniqueSlug, escapeHtml } from './utils.js';
+    import { uniqueSlug, escapeHtml, uploadFile } from './utils.js';
 
     const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
     if (profile && ["admin", "super_admin"].includes(profile.role)) {
@@ -153,6 +157,30 @@
     }
 
     document.getElementById('newProjectBtn').addEventListener('click', () => openModal());
+
+    document.getElementById('pImageUpload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const errorBox = document.getElementById('pImageUploadError');
+      errorBox.hidden = true;
+      const label = e.target.previousElementSibling;
+      const originalLabel = label.textContent;
+      label.textContent = 'Uploading…';
+
+      const { url, error } = await uploadFile(supabase, 'project-images', file, profile.id);
+
+      label.textContent = originalLabel;
+      e.target.value = '';
+
+      if (error) {
+        errorBox.textContent = error;
+        errorBox.hidden = false;
+        return;
+      }
+
+      document.getElementById('pImageUrl').value = url;
+    });
     document.getElementById('cancelBtn').addEventListener('click', closeModal);
 
     document.getElementById('projectForm').addEventListener('submit', async (e) => {
@@ -206,6 +234,7 @@
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
       display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100;
     }
+    .modal-overlay[hidden] { display: none; }
     .modal-card {
       background: var(--color-surface); border: 1px solid var(--color-border);
       border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px;

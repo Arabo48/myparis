@@ -34,6 +34,31 @@ export function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/**
+ * Uploads a file to a Supabase Storage bucket and returns its public URL.
+ * `pathPrefix` scopes the file under a folder (e.g. the uploader's user id)
+ * so per-user storage RLS policies can enforce ownership.
+ * Returns { url } on success or { error } on failure — never throws.
+ */
+export async function uploadFile(supabase, bucket, file, pathPrefix) {
+  if (!file) return { error: 'No file selected.' };
+  if (file.size > 5 * 1024 * 1024) return { error: 'File is too large (max 5MB).' };
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  const safeExt = /^[a-z0-9]+$/.test(ext) ? ext : 'jpg';
+  const path = `${pathPrefix}/${Date.now()}.${safeExt}`;
+
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 // A scalloped blue seal with a white checkmark — same visual language as
 // the familiar "verified" badges on major social platforms, drawn as our
 // own original path (not a copy of any trademarked icon).
