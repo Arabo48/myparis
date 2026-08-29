@@ -13,6 +13,7 @@
   <script src="env-config.js" defer></script>
 </head>
 <body>
+  <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'public-opportunities.html'; }">&larr; Back</button>
   <header class="site-header">
     <nav class="navbar" aria-label="Main navigation">
       <a class="brand" href="index.html">MY TOWN DIGITAL &amp; TECH COMMUNITY</a>

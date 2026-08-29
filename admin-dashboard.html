@@ -9,6 +9,7 @@
   <script src="env-config.js" defer></script>
 </head>
 <body>
+  <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'index.html'; }">&larr; Back</button>
   <div class="dashboard-layout">
     <aside class="dashboard-sidebar">
       <div class="brand">ADMIN</div>

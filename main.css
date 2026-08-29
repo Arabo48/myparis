@@ -155,6 +155,23 @@ h1, h2, h3 { font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
 }
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 0 14px;
+  padding: 8px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}
+.back-button:hover { color: var(--color-text); border-color: var(--color-primary); }
+
 .gallery-caption {
   font-size: 0.8rem;
   color: var(--color-text-muted);
