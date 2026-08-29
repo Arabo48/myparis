@@ -55,6 +55,9 @@ export async function applySidebarBrand(supabase) {
     document.title = document.title.replace(/MY TOWN DIGITAL & TECH COMMUNITY|ADMIN/i, data.platform_name);
   }
 }
+
+/**
+ * Uploads a file to a Supabase Storage bucket and returns its public URL.
  * `pathPrefix` scopes the file under a folder (e.g. the uploader's user id)
  * so per-user storage RLS policies can enforce ownership.
  * Returns { url } on success or { error } on failure — never throws.

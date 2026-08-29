@@ -70,7 +70,7 @@
 
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, neighborhoods(name)')
         .eq('username', username)
         .maybeSingle();
 
@@ -105,13 +105,13 @@
 
       const phone = visible(profile.phone_number, profile.phone_visibility, isOwner, isLoggedIn);
       const email = visible(profile.email, profile.email_visibility, isOwner, isLoggedIn);
-      const location = visible([profile.town, profile.state, profile.country].filter(Boolean).join(', '), profile.location_visibility, isOwner, isLoggedIn);
+      const location = visible([profile.neighborhoods?.name, profile.town, profile.state, profile.country].filter(Boolean).join(', '), profile.location_visibility, isOwner, isLoggedIn);
       const socials = visible(true, profile.social_links_visibility, isOwner, isLoggedIn);
       const portfolio = visible(profile.portfolio_url, profile.portfolio_visibility, isOwner, isLoggedIn);
 
       root.innerHTML = `
         <div class="profile-header">
-          <img src="${profile.profile_photo_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E'}" alt="" class="profile-avatar" />
+          <img src="${profile.profile_photo_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E"}" alt="" class="profile-avatar" />
           <div>
             <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? `<span class="verified-badge" title="Verified member">${VERIFIED_BADGE_SVG}</span>` : ''}</h1>
             <p class="profile-username">@${escapeHtml(profile.username)}</p>
