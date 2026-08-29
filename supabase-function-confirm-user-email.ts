@@ -1,20 +1,13 @@
-// Supabase Edge Function: delete-user
-// Deletes an auth.users row (which cascades to `profiles` and
-// everything that references it). Runs server-side with the
-// service_role key, which must never reach the frontend.
-//
-// Security: verifies the CALLER (via their own JWT) is an admin or
-// super_admin before deleting anything.
+// Supabase Edge Function: confirm-user-email
+// Lets an admin manually mark a member's email as confirmed, for cases
+// where the member never clicked their confirmation email. Requires
+// the service_role key server-side, same reasoning as delete-user.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Browsers send a CORS preflight (OPTIONS) request before the real
-// POST when a custom Authorization header is involved. Without these
-// headers the browser blocks the real request entirely and
-// supabase-js reports a generic "failed to send a request" error.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -76,18 +69,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (targetUserId === caller.id) {
-      return new Response(JSON.stringify({ error: 'Admins cannot delete their own account this way' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUserId, {
+      email_confirm: true,
+    });
 
-    if (deleteError) {
-      return new Response(JSON.stringify({ error: deleteError.message }), {
+    if (updateError) {
+      return new Response(JSON.stringify({ error: updateError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -95,7 +83,7 @@ Deno.serve(async (req: Request) => {
 
     await adminClient.from('audit_logs').insert({
       admin_id: caller.id,
-      action: 'member_deleted',
+      action: 'email_manually_confirmed',
       target_table: 'profiles',
       target_id: targetUserId,
       metadata: {},
