@@ -37,7 +37,7 @@ async function loadFeaturedMembers() {
 
   grid.innerHTML = data.map(m => `
     <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(m.username)}">
-      <img src="${m.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
+      <img loading="lazy" src="${m.profile_photo_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E'}" alt="" class="avatar" />
       <h3>${escapeHtml(m.full_name)} ${m.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
       <p>${escapeHtml(m.professional_headline || '')}</p>
     </a>
@@ -59,7 +59,7 @@ async function loadRecentProjects() {
 
   grid.innerHTML = data.map(p => `
     <a class="project-card" href="public-project-detail.html?s=${encodeURIComponent(p.slug)}">
-      <img src="${p.image_url || '/images/default-project.png'}" alt="" />
+      <img loading="lazy" src="${p.image_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Cpath d='M15 75l20-25 15 18 12-15 23 22z' fill='%23374151'/%3E%3Ccircle cx='30' cy='30' r='8' fill='%23374151'/%3E%3C/svg%3E'}" alt="" />
       <h3>${escapeHtml(p.title)}</h3>
       <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
     </a>

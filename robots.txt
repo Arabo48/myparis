@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Keep private/authenticated areas out of search results
+Disallow: /member-*
+Disallow: /admin-*
+
+Sitemap: /sitemap.xml

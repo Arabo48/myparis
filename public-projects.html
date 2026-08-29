@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Explore real projects built by young developers and designers in our town." />
+  <meta property="og:title" content="MY TOWN DIGITAL & TECH COMMUNITY" />
+  <meta property="og:description" content="Explore real projects built by young developers and designers in our town." />
+  <meta property="og:type" content="website" />
   <title>Project Showcase — MY TOWN DIGITAL & TECH COMMUNITY</title>
   <link rel="stylesheet" href="main.css" />
   <link rel="stylesheet" href="search.css" />
@@ -67,7 +71,7 @@
 
       grid.innerHTML = data.map(p => `
         <a class="project-card" href="public-project-detail.html?s=${encodeURIComponent(p.slug)}">
-          <img src="${p.image_url || '/images/default-project.png'}" alt="" />
+          <img loading="lazy" src="${p.image_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Cpath d='M15 75l20-25 15 18 12-15 23 22z' fill='%23374151'/%3E%3Ccircle cx='30' cy='30' r='8' fill='%23374151'/%3E%3C/svg%3E'}" alt="" />
           <h3>${escapeHtml(p.title)}</h3>
           <span class="status-badge status-${p.status}">${p.status.replace('_', ' ')}</span>
           ${p.profiles ? `<p class="member-location">by ${escapeHtml(p.profiles.full_name)}</p>` : ''}

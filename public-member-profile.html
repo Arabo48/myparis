@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title id="pageTitle">Member Profile</title>
   <meta name="description" id="pageDescription" content="Member profile" />
+  <meta property="og:title" id="ogTitle" content="Member Profile — MY TOWN DIGITAL & TECH COMMUNITY" />
+  <meta property="og:description" id="ogDescription" content="Member profile" />
+  <meta property="og:type" content="profile" />
   <link rel="stylesheet" href="main.css" />
   <link rel="stylesheet" href="forms.css" />
   <link rel="stylesheet" href="profile.css" />
@@ -89,6 +92,8 @@
 
       document.getElementById('pageTitle').textContent = `${profile.full_name} — MY TOWN DIGITAL & TECH COMMUNITY`;
       document.getElementById('pageDescription').setAttribute('content', profile.professional_headline || '');
+      document.getElementById('ogTitle').setAttribute('content', `${profile.full_name} — MY TOWN DIGITAL & TECH COMMUNITY`);
+      document.getElementById('ogDescription').setAttribute('content', profile.professional_headline || '');
 
       const [{ data: skills }, { data: projects }, { data: services }, { data: achievements }] = await Promise.all([
         supabase.from('member_skills').select('skills(name)').eq('profile_id', profile.id),
@@ -105,7 +110,7 @@
 
       root.innerHTML = `
         <div class="profile-header">
-          <img src="${profile.profile_photo_url || '/images/default-avatar.png'}" alt="" class="profile-avatar" />
+          <img src="${profile.profile_photo_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E'}" alt="" class="profile-avatar" />
           <div>
             <h1>${escapeHtml(profile.full_name)} ${profile.is_verified ? `<span class="verified-badge" title="Verified member">${VERIFIED_BADGE_SVG}</span>` : ''}</h1>
             <p class="profile-username">@${escapeHtml(profile.username)}</p>

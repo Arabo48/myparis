@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Find a mentor or become one — connect with experienced members in tech." />
+  <meta property="og:title" content="MY TOWN DIGITAL & TECH COMMUNITY" />
+  <meta property="og:description" content="Find a mentor or become one — connect with experienced members in tech." />
+  <meta property="og:type" content="website" />
   <title>Mentorship — MY TOWN DIGITAL & TECH COMMUNITY</title>
   <link rel="stylesheet" href="main.css" />
   <link rel="stylesheet" href="search.css" />
@@ -48,7 +52,7 @@
       grid.innerHTML = data.map(m => `
         <div class="member-card">
           <a href="public-member-profile.html?u=${encodeURIComponent(m.profiles.username)}" style="display:block;">
-            <img src="${m.profiles.profile_photo_url || '/images/default-avatar.png'}" alt="" class="avatar" />
+            <img loading="lazy" src="${m.profiles.profile_photo_url || 'data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E'}" alt="" class="avatar" />
             <h3>${escapeHtml(m.profiles.full_name)}</h3>
             <p>${escapeHtml(m.profiles.professional_headline || '')}</p>
             ${m.areas_of_mentorship && m.areas_of_mentorship.length ? `<p class="member-location">${m.areas_of_mentorship.map(escapeHtml).join(', ')}</p>` : ''}
