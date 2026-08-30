@@ -42,7 +42,7 @@
       const params = new URLSearchParams(window.location.search);
       if (params.get('u')) return params.get('u');
       const parts = window.location.pathname.split('/').filter(Boolean);
-      return parts[parts.length - 1] !== 'member-profile.html' ? parts[parts.length - 1] : null;
+      return parts[parts.length - 1] !== 'public-member-profile.html' ? parts[parts.length - 1] : null;
     }
 
     function escapeHtml(str) {

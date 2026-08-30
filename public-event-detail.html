@@ -38,7 +38,7 @@
       const params = new URLSearchParams(window.location.search);
       if (params.get('s')) return params.get('s');
       const parts = window.location.pathname.split('/').filter(Boolean);
-      return parts[parts.length - 1] !== 'event-detail.html' ? parts[parts.length - 1] : null;
+      return parts[parts.length - 1] !== 'public-event-detail.html' ? parts[parts.length - 1] : null;
     }
 
     async function render() {

@@ -33,7 +33,7 @@ export async function registerUser({ email, password, fullName, username }) {
     password,
     options: {
       data: { full_name: fullName, username }, // consumed by handle_new_user() trigger
-      emailRedirectTo: `${window.location.origin}/public-login.html`,
+      emailRedirectTo: new URL('public-login.html', window.location.href).href,
     },
   });
 
@@ -63,7 +63,7 @@ export async function logoutUser() {
 
 export async function requestPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/public-login.html`,
+    redirectTo: new URL('public-login.html', window.location.href).href,
   });
   if (error) return { error: 'Could not send reset email. Please try again.' };
   return { success: true };

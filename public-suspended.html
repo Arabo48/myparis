@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account Suspended</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="forms.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <main class="auth-page">
+    <div class="auth-card" style="text-align:center;">
+      <h1>Account Suspended</h1>
+      <p class="auth-subtitle">
+        Your account has been suspended by an administrator. If you believe
+        this is a mistake, please reach out to the community team for review.
+      </p>
+      <button type="button" class="btn-ghost" id="logoutBtn" style="margin-top:14px;">Log Out</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { logoutUser } from './auth.js';
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await logoutUser();
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

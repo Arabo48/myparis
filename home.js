@@ -167,10 +167,10 @@ async function applyNavAuthState() {
   }
 }
 
-loadPlatformName();
-loadStats();
-loadFeaturedMembers();
-loadRecentProjects();
-loadUpcomingEvents();
-loadGallery();
-applyNavAuthState();
+loadPlatformName().catch(() => {});
+loadStats().catch(() => {});
+loadFeaturedMembers().catch(() => {});
+loadRecentProjects().catch(() => {});
+loadUpcomingEvents().catch(() => {});
+loadGallery().catch(() => {});
+applyNavAuthState().catch(() => {});
