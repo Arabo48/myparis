@@ -38,6 +38,12 @@
       <div class="card-grid" id="connectedGrid" style="margin-top:12px;">
         <p class="placeholder-text">Loading…</p>
       </div>
+
+      <h2 style="font-size:1.05rem;margin-top:30px;">Discover Members</h2>
+      <p class="placeholder-text">Browse other members and send a connection request.</p>
+      <div class="card-grid" id="discoverGrid" style="margin-top:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
     </main>
   </div>
 
@@ -160,10 +166,72 @@
       }).join('');
     }
 
+    async function loadDiscoverMembers() {
+      const grid = document.getElementById('discoverGrid');
+      try {
+        // Everyone this member already has a connection record with
+        // (pending, accepted, or rejected) — exclude from discovery.
+        const { data: existingConns } = await supabase
+          .from('connections')
+          .select('requester_id, addressee_id')
+          .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`);
+
+        const excludeIds = new Set([profile.id]);
+        (existingConns || []).forEach(c => {
+          excludeIds.add(c.requester_id);
+          excludeIds.add(c.addressee_id);
+        });
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, professional_headline, profile_photo_url, is_verified')
+          .eq('profile_visibility', 'public')
+          .eq('is_suspended', false)
+          .order('created_at', { ascending: false })
+          .limit(60);
+
+        if (error || !data) { grid.innerHTML = '<p class="placeholder-text">Could not load members. Please try again.</p>'; return; }
+
+        const discoverable = data.filter(p => !excludeIds.has(p.id));
+
+        if (discoverable.length === 0) {
+          grid.innerHTML = '<p class="placeholder-text">No new members to discover right now.</p>';
+          return;
+        }
+
+        grid.innerHTML = discoverable.map(p => `
+          <div class="member-card">
+            <a href="public-member-profile.html?u=${encodeURIComponent(p.username)}" style="display:block;">
+              ${profileCardHtml(p)}
+            </a>
+            <button type="button" class="btn-primary connect-btn" data-id="${p.id}" style="margin-top:10px;">Connect</button>
+          </div>
+        `).join('');
+
+        grid.querySelectorAll('.connect-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+            const { error: insertError } = await supabase.from('connections').insert({
+              requester_id: profile.id, addressee_id: btn.dataset.id,
+            });
+            if (insertError) {
+              btn.textContent = 'Could not send';
+              return;
+            }
+            btn.textContent = 'Request Sent ✓';
+          });
+        });
+      } catch (err) {
+        grid.innerHTML = '<p class="placeholder-text">Could not load members. Please try again.</p>';
+      }
+    }
+
     function loadAll() {
       loadPendingReceived();
       loadPendingSent();
       loadConnected();
+      loadDiscoverMembers();
     }
 
     loadAll();

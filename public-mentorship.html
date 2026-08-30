@@ -37,16 +37,17 @@
     import { escapeHtml, VERIFIED_BADGE_SVG } from './utils.js';
 
     async function load() {
-      const { data, error } = await supabase
-        .from('mentors')
-        .select('id, areas_of_mentorship, availability, profiles(username, full_name, professional_headline, profile_photo_url, is_verified)')
-        .eq('is_approved', true);
-
       const grid = document.getElementById('mentorsGrid');
-      if (error || !data || data.length === 0) {
-        grid.innerHTML = '<p class="placeholder-text">No approved mentors yet — check back soon.</p>';
-        return;
-      }
+      try {
+        const { data, error } = await supabase
+          .from('mentors')
+          .select('id, areas_of_mentorship, availability, profiles(username, full_name, professional_headline, profile_photo_url, is_verified)')
+          .eq('is_approved', true);
+
+        if (error || !data || data.length === 0) {
+          grid.innerHTML = '<p class="placeholder-text">No approved mentors yet — check back soon.</p>';
+          return;
+        }
 
       const viewer = await getCurrentProfile();
 
@@ -75,6 +76,9 @@
           btn.disabled = true;
         });
       });
+      } catch (err) {
+        grid.innerHTML = '<p class="placeholder-text">Something went wrong loading mentors. Please try again.</p>';
+      }
     }
 
     load();

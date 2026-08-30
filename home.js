@@ -4,6 +4,7 @@
 
 import { supabase } from './supabase-client.js';
 import { VERIFIED_BADGE_SVG } from './utils.js';
+import { getCurrentProfile, logoutUser } from './auth.js';
 
 async function loadStats() {
   const [{ count: members }, { count: skills }, { count: projects }, { count: opportunities }, { count: neighborhoods }] =
@@ -145,9 +146,31 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+async function applyNavAuthState() {
+  const viewer = await getCurrentProfile();
+  const loginLink = document.getElementById('navLoginLink');
+  const joinItem = document.getElementById('navJoinItem');
+  if (!loginLink || !joinItem) return;
+
+  if (viewer) {
+    loginLink.textContent = 'Logout';
+    loginLink.removeAttribute('href');
+    loginLink.style.cursor = 'pointer';
+    loginLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!confirm('Are you sure you want to log out?')) return;
+      await logoutUser();
+      window.location.reload();
+    });
+
+    joinItem.innerHTML = `<a href="member-dashboard.html" class="btn-primary">My Dashboard</a>`;
+  }
+}
+
 loadPlatformName();
 loadStats();
 loadFeaturedMembers();
 loadRecentProjects();
 loadUpcomingEvents();
 loadGallery();
+applyNavAuthState();

@@ -111,52 +111,56 @@
       const grid = document.getElementById('resultsGrid');
       grid.innerHTML = '<p class="placeholder-text">Searching…</p>';
 
-      const name = document.getElementById('qName').value.trim();
-      const skillId = document.getElementById('fSkill').value;
-      const categoryId = document.getElementById('fCategory').value;
-      const experience = document.getElementById('fExperience').value;
-      const availability = document.getElementById('fAvailability').value;
-      const status = document.getElementById('fStatus').value;
-      const sort = document.getElementById('fSort').value;
+      try {
+        const name = document.getElementById('qName').value.trim();
+        const skillId = document.getElementById('fSkill').value;
+        const categoryId = document.getElementById('fCategory').value;
+        const experience = document.getElementById('fExperience').value;
+        const availability = document.getElementById('fAvailability').value;
+        const status = document.getElementById('fStatus').value;
+        const sort = document.getElementById('fSort').value;
 
-      let memberIdsFromSkill = null;
-      if (skillId) {
-        const { data } = await supabase.from('member_skills').select('profile_id').eq('skill_id', skillId);
-        memberIdsFromSkill = (data || []).map(r => r.profile_id);
-        if (memberIdsFromSkill.length === 0) {
-          renderResults([], 0);
-          return;
+        let memberIdsFromSkill = null;
+        if (skillId) {
+          const { data } = await supabase.from('member_skills').select('profile_id').eq('skill_id', skillId);
+          memberIdsFromSkill = (data || []).map(r => r.profile_id);
+          if (memberIdsFromSkill.length === 0) {
+            renderResults([], 0);
+            return;
+          }
+        } else if (categoryId) {
+          const { data: categorySkills } = await supabase.from('skills').select('id').eq('category_id', categoryId);
+          const skillIds = (categorySkills || []).map(s => s.id);
+          if (skillIds.length === 0) { renderResults([], 0); return; }
+          const { data } = await supabase.from('member_skills').select('profile_id').in('skill_id', skillIds);
+          memberIdsFromSkill = [...new Set((data || []).map(r => r.profile_id))];
+          if (memberIdsFromSkill.length === 0) { renderResults([], 0); return; }
         }
-      } else if (categoryId) {
-        const { data: categorySkills } = await supabase.from('skills').select('id').eq('category_id', categoryId);
-        const skillIds = (categorySkills || []).map(s => s.id);
-        if (skillIds.length === 0) { renderResults([], 0); return; }
-        const { data } = await supabase.from('member_skills').select('profile_id').in('skill_id', skillIds);
-        memberIdsFromSkill = [...new Set((data || []).map(r => r.profile_id))];
-        if (memberIdsFromSkill.length === 0) { renderResults([], 0); return; }
+
+        let query = supabase
+          .from('profiles')
+          .select('id, username, full_name, professional_headline, profile_photo_url, is_verified, town, state, availability_status', { count: 'exact' })
+          .eq('profile_visibility', 'public')
+          .eq('is_suspended', false);
+
+        if (name) query = query.or(`full_name.ilike.%${name}%,professional_headline.ilike.%${name}%`);
+        if (experience) query = query.eq('experience_level', experience);
+        if (availability) query = query.eq('availability_status', availability);
+        if (status) query = query.eq('professional_status', status);
+        if (memberIdsFromSkill) query = query.in('id', memberIdsFromSkill);
+
+        query = sort === 'name_asc'
+          ? query.order('full_name', { ascending: true })
+          : query.order('created_at', { ascending: false });
+
+        query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+
+        const { data, count, error } = await query;
+        if (error) { grid.innerHTML = '<p class="placeholder-text">Something went wrong loading members. Please try again.</p>'; return; }
+        renderResults(data || [], count || 0);
+      } catch (err) {
+        grid.innerHTML = '<p class="placeholder-text">Something went wrong loading members. Please try again.</p>';
       }
-
-      let query = supabase
-        .from('profiles')
-        .select('id, username, full_name, professional_headline, profile_photo_url, is_verified, town, state, availability_status', { count: 'exact' })
-        .eq('profile_visibility', 'public')
-        .eq('is_suspended', false);
-
-      if (name) query = query.or(`full_name.ilike.%${name}%,professional_headline.ilike.%${name}%`);
-      if (experience) query = query.eq('experience_level', experience);
-      if (availability) query = query.eq('availability_status', availability);
-      if (status) query = query.eq('professional_status', status);
-      if (memberIdsFromSkill) query = query.in('id', memberIdsFromSkill);
-
-      query = sort === 'name_asc'
-        ? query.order('full_name', { ascending: true })
-        : query.order('created_at', { ascending: false });
-
-      query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-
-      const { data, count, error } = await query;
-      if (error) { renderResults([], 0); return; }
-      renderResults(data || [], count || 0);
     }
 
     function renderResults(members, total) {

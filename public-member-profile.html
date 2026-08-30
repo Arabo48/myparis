@@ -68,26 +68,27 @@
         return;
       }
 
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*, neighborhoods(name)')
-        .eq('username', username)
-        .maybeSingle();
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*, neighborhoods(name)')
+          .eq('username', username)
+          .maybeSingle();
 
-      if (error || !profile) {
-        root.innerHTML = '<p class="placeholder-text">This profile could not be found.</p>';
-        return;
-      }
-
-      if (profile.profile_visibility === 'private') {
-        const viewer = await getCurrentProfile();
-        if (!viewer || viewer.id !== profile.id) {
-          root.innerHTML = '<p class="placeholder-text">This profile is private.</p>';
+        if (error || !profile) {
+          root.innerHTML = '<p class="placeholder-text">This profile could not be found.</p>';
           return;
         }
-      }
 
-      const viewer = await getCurrentProfile();
+        if (profile.profile_visibility === 'private') {
+          const viewerCheck = await getCurrentProfile();
+          if (!viewerCheck || viewerCheck.id !== profile.id) {
+            root.innerHTML = '<p class="placeholder-text">This profile is private.</p>';
+            return;
+          }
+        }
+
+        const viewer = await getCurrentProfile();
       const isOwner = !!viewer && viewer.id === profile.id;
       const isLoggedIn = !!viewer;
 
@@ -190,6 +191,9 @@
 
       loadConnectionCount(profile.id);
       if (isLoggedIn && !isOwner) renderConnectAction(viewer.id, profile.id);
+      } catch (err) {
+        root.innerHTML = '<p class="placeholder-text">Something went wrong loading this profile. Please try again.</p>';
+      }
     }
 
     async function loadConnectionCount(profileId) {
