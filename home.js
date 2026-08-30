@@ -6,18 +6,20 @@ import { supabase } from './supabase-client.js';
 import { VERIFIED_BADGE_SVG } from './utils.js';
 
 async function loadStats() {
-  const [{ count: members }, { count: skills }, { count: projects }, { count: opportunities }] =
+  const [{ count: members }, { count: skills }, { count: projects }, { count: opportunities }, { count: neighborhoods }] =
     await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('skills').select('id', { count: 'exact', head: true }),
       supabase.from('projects').select('id', { count: 'exact', head: true }),
       supabase.from('opportunities').select('id', { count: 'exact', head: true }).eq('is_approved', true),
+      supabase.from('neighborhoods').select('id', { count: 'exact', head: true }).eq('is_active', true),
     ]);
 
   setText('statMembers', members ?? 0);
   setText('statSkills', skills ?? 0);
   setText('statProjects', projects ?? 0);
   setText('statOpportunities', opportunities ?? 0);
+  setText('statNeighborhoods', neighborhoods ?? 0);
 }
 
 async function loadFeaturedMembers() {

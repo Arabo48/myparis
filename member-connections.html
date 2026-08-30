@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Connections</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="profile.css" />
+  <script src="env-config.js" defer></script>
+</head>
+<body>
+  <button type="button" class="back-button" onclick="if (document.referrer && document.referrer.indexOf(location.host) !== -1 && document.referrer !== location.href) { history.back(); } else { location.href = 'member-dashboard.html'; }">&larr; Back</button>
+  <div class="dashboard-layout">
+    <aside class="dashboard-sidebar">
+      <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
+      <nav>
+        <a href="member-dashboard.html">Overview</a>
+        <a href="member-profile.html">My Profile</a>
+        <a href="member-connections.html" class="active">Connections</a>
+        <a href="member-messages.html">Messages</a>
+        <a href="member-opportunities.html">Opportunities</a>
+        <a href="member-events.html">Events</a>
+        <a href="member-mentorship.html">Mentorship</a>
+        <a href="member-settings.html">Settings</a>
+        <a href="index.html" style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Home</a>
+        <a href="admin-dashboard.html" id="switchToAdminLink" hidden style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Switch to Admin View</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <h1>My Connections</h1>
+
+      <section id="pendingReceivedSection" style="margin-top:16px;"></section>
+      <section id="pendingSentSection" style="margin-top:24px;"></section>
+
+      <h2 style="font-size:1.05rem;margin-top:30px;">Connected (<span id="connectedCount">0</span>)</h2>
+      <div class="card-grid" id="connectedGrid" style="margin-top:12px;">
+        <p class="placeholder-text">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireRole } from './auth.js';
+    import { supabase } from './supabase-client.js';
+    import { applySidebarBrand, escapeHtml, VERIFIED_BADGE_SVG } from './utils.js';
+    applySidebarBrand(supabase);
+
+    const profile = await requireRole(['member', 'mentor', 'organization', 'admin', 'super_admin']);
+    if (!profile) throw new Error('Not authorized');
+
+    if (['admin', 'super_admin'].includes(profile.role)) {
+      const switchLink = document.getElementById('switchToAdminLink');
+      if (switchLink) switchLink.hidden = false;
+    }
+
+    function profileCardHtml(p) {
+      const avatar = p.profile_photo_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E";
+      return `
+        <img loading="lazy" src="${avatar}" alt="" class="avatar" />
+        <h3>${escapeHtml(p.full_name)} ${p.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
+        <p>${escapeHtml(p.professional_headline || '')}</p>
+      `;
+    }
+
+    async function loadPendingReceived() {
+      const { data, error } = await supabase
+        .from('connections')
+        .select('id, profiles!connections_requester_id_fkey(id, username, full_name, professional_headline, profile_photo_url, is_verified)')
+        .eq('addressee_id', profile.id)
+        .eq('status', 'pending');
+
+      const section = document.getElementById('pendingReceivedSection');
+      if (error || !data || data.length === 0) { section.innerHTML = ''; return; }
+
+      section.innerHTML = `
+        <h2 style="font-size:1.05rem;">Connection Requests (${data.length})</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+          ${data.map(c => `
+            <div class="list-row">
+              <div>
+                <a href="public-member-profile.html?u=${encodeURIComponent(c.profiles.username)}"><strong>${escapeHtml(c.profiles.full_name)}</strong></a>
+                ${c.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}
+                <p class="placeholder-text" style="margin:4px 0 0;">${escapeHtml(c.profiles.professional_headline || '')}</p>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-primary accept-btn" data-id="${c.id}">Accept</button>
+                <button class="btn-ghost reject-btn" data-id="${c.id}">Decline</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      section.querySelectorAll('.accept-btn').forEach(btn => btn.addEventListener('click', async () => {
+        await supabase.from('connections').update({ status: 'accepted' }).eq('id', btn.dataset.id);
+        loadAll();
+      }));
+      section.querySelectorAll('.reject-btn').forEach(btn => btn.addEventListener('click', async () => {
+        await supabase.from('connections').update({ status: 'rejected' }).eq('id', btn.dataset.id);
+        loadAll();
+      }));
+    }
+
+    async function loadPendingSent() {
+      const { data, error } = await supabase
+        .from('connections')
+        .select('id, profiles!connections_addressee_id_fkey(id, username, full_name, is_verified)')
+        .eq('requester_id', profile.id)
+        .eq('status', 'pending');
+
+      const section = document.getElementById('pendingSentSection');
+      if (error || !data || data.length === 0) { section.innerHTML = ''; return; }
+
+      section.innerHTML = `
+        <h2 style="font-size:1.05rem;">Sent Requests (${data.length})</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+          ${data.map(c => `
+            <div class="list-row">
+              <div>
+                <a href="public-member-profile.html?u=${encodeURIComponent(c.profiles.username)}"><strong>${escapeHtml(c.profiles.full_name)}</strong></a>
+                ${c.profiles.is_verified ? VERIFIED_BADGE_SVG : ''}
+                <span class="status-badge">Pending</span>
+              </div>
+              <button class="btn-ghost cancel-btn" data-id="${c.id}">Cancel</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      section.querySelectorAll('.cancel-btn').forEach(btn => btn.addEventListener('click', async () => {
+        await supabase.from('connections').delete().eq('id', btn.dataset.id);
+        loadAll();
+      }));
+    }
+
+    async function loadConnected() {
+      const { data, error } = await supabase
+        .from('connections')
+        .select('id, requester_id, addressee_id, profiles!connections_requester_id_fkey(id, username, full_name, professional_headline, profile_photo_url, is_verified), addressee:profiles!connections_addressee_id_fkey(id, username, full_name, professional_headline, profile_photo_url, is_verified)')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`);
+
+      const grid = document.getElementById('connectedGrid');
+      document.getElementById('connectedCount').textContent = data ? data.length : 0;
+
+      if (error || !data || data.length === 0) {
+        grid.innerHTML = '<p class="placeholder-text">You have no connections yet. Visit a member\'s profile to connect.</p>';
+        return;
+      }
+
+      grid.innerHTML = data.map(c => {
+        const other = c.requester_id === profile.id ? c.addressee : c.profiles;
+        return `
+          <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(other.username)}">
+            ${profileCardHtml(other)}
+          </a>
+        `;
+      }).join('');
+    }
+
+    function loadAll() {
+      loadPendingReceived();
+      loadPendingSent();
+      loadConnected();
+    }
+
+    loadAll();
+  </script>
+  <style>.list-row { display: flex; justify-content: space-between; align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; gap: 12px; }</style>
+</body>
+</html>

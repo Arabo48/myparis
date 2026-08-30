@@ -58,13 +58,14 @@
             <p>${escapeHtml(m.profiles.professional_headline || '')}</p>
             ${m.areas_of_mentorship && m.areas_of_mentorship.length ? `<p class="member-location">${m.areas_of_mentorship.map(escapeHtml).join(', ')}</p>` : ''}
           </a>
-          <button type="button" class="btn-ghost request-btn" data-mentor-id="${m.id}" style="margin-top:10px;">Request Mentorship</button>
+          ${viewer
+            ? `<button type="button" class="btn-ghost request-btn" data-mentor-id="${m.id}" style="margin-top:10px;">Request Mentorship</button>`
+            : `<a href="public-login.html" class="btn-ghost" style="margin-top:10px;display:inline-block;">Log in to request mentorship</a>`}
         </div>
       `).join('');
 
       grid.querySelectorAll('.request-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!viewer) { window.location.href = 'public-login.html'; return; }
           const message = prompt('Introduce yourself and say what you\'re hoping for from this mentorship:');
           if (message === null) return;
           const { error: reqError } = await supabase.from('mentorship_requests').insert({

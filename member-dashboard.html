@@ -15,6 +15,8 @@
       <div class="brand" id="sidebarBrand">MY TOWN TECH</div>
       <nav>
         <a href="member-dashboard.html" class="active">Overview</a>
+        <a href="member-connections.html">Connections</a>
+        <a href="member-messages.html">Messages</a>
         <a href="member-profile.html">My Profile</a>
         <a href="member-skills.html">My Skills</a>
         <a href="member-projects.html">My Projects</a>
@@ -27,6 +29,7 @@
         <a href="member-notifications.html">Notifications</a>
         <a href="member-settings.html">Settings</a>
         <button id="logoutBtn" class="logout-btn">Log out</button>
+        <a href="index.html" style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Home</a>
         <a href="admin-dashboard.html" id="switchToAdminLink" hidden style="border-top:1px solid var(--color-border);margin-top:8px;padding-top:14px;">Switch to Admin View</a>
       </nav>
     </aside>
@@ -41,11 +44,14 @@
         <div class="stat-card"><span id="savedOppCount">–</span><label>Saved opportunities</label></div>
         <div class="stat-card"><span id="eventCount">–</span><label>Event registrations</label></div>
         <div class="stat-card"><span id="mentorshipCount">–</span><label>Mentorship requests</label></div>
+        <div class="stat-card"><span id="connectionCount">–</span><label>Connections</label></div>
       </section>
 
       <section id="announcementBanner"></section>
 
       <section id="verificationNotice"></section>
+
+      <section id="neighborhoodSection" style="margin-top:24px;"></section>
     </main>
   </div>
 
@@ -88,13 +94,14 @@
       document.getElementById('profileCompletion').textContent =
         Math.round((filled / fields.length) * 100) + '%';
 
-      const [{ count: projects }, { count: skills }, { count: savedOpps }, { count: events }, { count: mentorships }] =
+      const [{ count: projects }, { count: skills }, { count: savedOpps }, { count: events }, { count: mentorships }, { count: connections }] =
         await Promise.all([
           supabase.from('projects').select('id', { count: 'exact', head: true }).eq('owner_id', profile.id),
           supabase.from('member_skills').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
           supabase.from('saved_opportunities').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
           supabase.from('event_registrations').select('id', { count: 'exact', head: true }).eq('profile_id', profile.id),
           supabase.from('mentorship_requests').select('id', { count: 'exact', head: true }).eq('requester_id', profile.id),
+          supabase.from('connections').select('id', { count: 'exact', head: true }).eq('status', 'accepted').or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`),
         ]);
 
       document.getElementById('projectCount').textContent = projects ?? 0;
@@ -102,14 +109,57 @@
       document.getElementById('savedOppCount').textContent = savedOpps ?? 0;
       document.getElementById('eventCount').textContent = events ?? 0;
       document.getElementById('mentorshipCount').textContent = mentorships ?? 0;
+      document.getElementById('connectionCount').textContent = connections ?? 0;
 
       if (profile.verification_status === 'unverified') {
         document.getElementById('verificationNotice').innerHTML =
           `<p class="notice">Your profile isn't verified yet. <a href="member-settings.html">Request verification</a> to earn a badge.</p>`;
       }
+
+      loadNeighborhoodMembers(profile);
+    }
+
+    async function loadNeighborhoodMembers(profile) {
+      const section = document.getElementById('neighborhoodSection');
+      if (!profile.neighborhood_id) {
+        section.innerHTML = `<p class="placeholder-text">Add your neighborhood in <a href="member-profile.html">your profile</a> to see other members nearby.</p>`;
+        return;
+      }
+
+      const { data: neighborhood } = await supabase
+        .from('neighborhoods').select('name').eq('id', profile.neighborhood_id).maybeSingle();
+
+      const { data: neighbors, error } = await supabase
+        .from('profiles')
+        .select('username, full_name, professional_headline, profile_photo_url, is_verified')
+        .eq('neighborhood_id', profile.neighborhood_id)
+        .eq('profile_visibility', 'public')
+        .neq('id', profile.id)
+        .limit(12);
+
+      const heading = neighborhood?.name ? `People in ${escapeHtml(neighborhood.name)}` : 'People in your neighborhood';
+
+      if (error || !neighbors || neighbors.length === 0) {
+        section.innerHTML = `<h2 style="font-size:1.05rem;margin-bottom:10px;">${heading}</h2><p class="placeholder-text">No other members from your neighborhood yet.</p>`;
+        return;
+      }
+
+      section.innerHTML = `
+        <h2 style="font-size:1.05rem;margin-bottom:10px;">${heading}</h2>
+        <div class="card-grid">
+          ${neighbors.map(n => `
+            <a class="member-card" href="public-member-profile.html?u=${encodeURIComponent(n.username)}">
+              <img loading="lazy" src="${n.profile_photo_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231A2332'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23374151'/%3E%3Cpath d='M20 88c0-22 14-36 30-36s30 14 30 36' fill='%23374151'/%3E%3C/svg%3E"}" alt="" class="avatar" />
+              <h3>${escapeHtml(n.full_name)} ${n.is_verified ? VERIFIED_BADGE_SVG : ''}</h3>
+              <p>${escapeHtml(n.professional_headline || '')}</p>
+            </a>
+          `).join('')}
+        </div>
+      `;
     }
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to log out?')) return;
       await logoutUser();
       window.location.href = 'index.html';
     });
